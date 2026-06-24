@@ -3,7 +3,11 @@ import SwiftUI
 
 @main
 struct ButtonsApp: App {
-    @State private var library = ButtonLibrary.production()
+    @State private var library: ButtonLibrary
+
+    init() {
+        _library = State(initialValue: ButtonLibrary.production())
+    }
 
     var body: some Scene {
         WindowGroup {

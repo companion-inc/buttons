@@ -6,6 +6,11 @@ public enum WorkflowStepKind: String, Codable, CaseIterable, Equatable, Identifi
     case runShortcut
     case runShellCommand
     case showMessage
+    case askAI
+
+    public static var allCases: [WorkflowStepKind] {
+        [.askAI]
+    }
 
     public var id: String { rawValue }
 
@@ -21,6 +26,8 @@ public enum WorkflowStepKind: String, Codable, CaseIterable, Equatable, Identifi
             "Run command"
         case .showMessage:
             "Show message"
+        case .askAI:
+            "Workflow"
         }
     }
 
@@ -36,6 +43,8 @@ public enum WorkflowStepKind: String, Codable, CaseIterable, Equatable, Identifi
             "Command"
         case .showMessage:
             "Message"
+        case .askAI:
+            "Workflow"
         }
     }
 
@@ -43,7 +52,7 @@ public enum WorkflowStepKind: String, Codable, CaseIterable, Equatable, Identifi
         switch self {
         case .runShortcut, .runShellCommand:
             true
-        case .openURL, .copyText, .showMessage:
+        case .openURL, .copyText, .showMessage, .askAI:
             false
         }
     }

@@ -32,4 +32,14 @@ struct ButtonRepositoryTests {
 
         #expect(!loaded.isEmpty)
     }
+
+    @Test("First seed button stars the Buttons repository")
+    func firstSeedButtonStarsButtonsRepository() {
+        let button = ButtonSeed.defaults[0]
+
+        #expect(button.title == "Star Repo")
+        #expect(button.workflow.inputs.first?.key == "repo")
+        #expect(button.workflow.inputs.first?.defaultValue == "companion-inc/buttons")
+        #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)
+    }
 }

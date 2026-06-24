@@ -10,7 +10,7 @@ public enum ApprovalPolicy: String, Codable, CaseIterable, Equatable, Identifiab
     public var title: String {
         switch self {
         case .automatic:
-            "Auto"
+            "Ask first"
         case .always:
             "Always ask"
         case .never:

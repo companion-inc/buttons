@@ -3,13 +3,14 @@ import SwiftUI
 
 struct AppRootView: View {
     @Bindable var library: ButtonLibrary
-    @State private var editorButton: ActionButton?
-    @State private var pendingRun: PendingRun?
-    @State private var receipt: ButtonRunReceipt?
+    @State private var detailSelection: DetailSelection?
     @State private var exportDocument = ButtonTemplateDocument(button: .empty)
     @State private var exportFilename = "Button.button.json"
     @State private var isExporting = false
     @State private var isImporting = false
+    @State private var pendingRunButton: ActionButton?
+    @State private var skipFutureConfirmations = false
+    @Namespace private var buttonZoomNamespace
 
     var body: some View {
         ZStack {
@@ -23,14 +24,46 @@ struct AppRootView: View {
 
                 ButtonBoardView(
                     buttons: library.buttons,
-                    runAction: run,
-                    editAction: edit,
+                    selectedButtonID: activeZoomButtonID,
+                    namespace: buttonZoomNamespace,
+                    runAction: requestRun,
+                    editAction: openButton,
+                    duplicateAction: duplicate,
+                    shareAction: share,
+                    runsAction: openButton,
+                    deleteAction: delete
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 28)
+            }
+            .scaleEffect(isOverlayActive ? 0.985 : 1)
+            .opacity(isOverlayActive ? 0 : 1)
+            .allowsHitTesting(!isOverlayActive)
+
+            if let selectedButton {
+                ButtonDetailScreenView(
+                    button: selectedButton,
+                    namespace: buttonZoomNamespace,
+                    closeAction: closeDetail,
                     duplicateAction: duplicate,
                     shareAction: share,
                     deleteAction: delete
                 )
-                .padding(.horizontal, 28)
-                .padding(.bottom, 28)
+                .zIndex(10)
+                .transition(.opacity)
+            }
+
+            if let pendingRunButton {
+                RunConfirmationView(
+                    button: pendingRunButton,
+                    namespace: buttonZoomNamespace,
+                    doNotAskAgain: $skipFutureConfirmations,
+                    cancelAction: cancelPendingRun,
+                    runAction: confirmPendingRun
+                )
+                .zIndex(20)
+                .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
         .preferredColorScheme(.light)
@@ -41,9 +74,6 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .newButtonRequested)) { _ in
             newButton()
         }
-        .sheet(item: $editorButton, content: ButtonEditorView.init)
-        .sheet(item: $pendingRun, content: runSheet)
-        .sheet(item: $receipt, content: ReceiptView.init)
         .fileExporter(
             isPresented: $isExporting,
             document: exportDocument,
@@ -60,34 +90,46 @@ struct AppRootView: View {
         }
     }
 
-    private func runSheet(_ pendingRun: PendingRun) -> some View {
-        RunButtonView(button: pendingRun.button) { values in
-            Task {
-                await performRun(button: pendingRun.button, values: values)
-            }
+    private var selectedButton: ActionButton? {
+        guard let id = detailSelection?.buttonID else {
+            return nil
         }
+
+        return library.button(id: id)
+    }
+
+    private var isOverlayActive: Bool {
+        detailSelection != nil || pendingRunButton != nil
+    }
+
+    private var activeZoomButtonID: UUID? {
+        detailSelection?.buttonID ?? pendingRunButton?.id
     }
 
     private func newButton() {
-        editorButton = .empty
+        let button = ActionButton.empty
+        Task {
+            await library.add(button)
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+                detailSelection = .button(button.id)
+            }
+        }
     }
 
     private func importButton() {
         isImporting = true
     }
 
-    private func run(_ button: ActionButton) {
-        if button.needsApproval || !button.workflow.inputs.isEmpty {
-            pendingRun = PendingRun(button: button)
-        } else {
-            Task {
-                await performRun(button: button, values: [:])
+    private func openButton(_ button: ActionButton) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+            pendingRunButton = nil
+            skipFutureConfirmations = false
+            if detailSelection?.buttonID == button.id {
+                detailSelection = nil
+            } else {
+                detailSelection = .button(button.id)
             }
         }
-    }
-
-    private func edit(_ button: ActionButton) {
-        editorButton = button
     }
 
     private func duplicate(_ button: ActionButton) {
@@ -105,15 +147,91 @@ struct AppRootView: View {
         isExporting = true
     }
 
-    private func delete(_ button: ActionButton) {
-        Task {
-            await library.delete(button)
+    private func showRuns(_ button: ActionButton) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+            detailSelection = .button(button.id)
         }
     }
 
-    private func performRun(button: ActionButton, values: [String: String]) async {
-        pendingRun = nil
-        receipt = await library.run(button, values: values)
+    private func requestRun(_ button: ActionButton) {
+        guard button.requiresRunConfirmation else {
+            run(button)
+            return
+        }
+
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+            detailSelection = nil
+            pendingRunButton = button
+            skipFutureConfirmations = false
+        }
+    }
+
+    private func confirmPendingRun(values: [String: String]) {
+        guard var button = pendingRunButton else {
+            return
+        }
+
+        let shouldSkipFutureConfirmations = skipFutureConfirmations
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+            pendingRunButton = nil
+            skipFutureConfirmations = false
+        }
+
+        Task {
+            if shouldSkipFutureConfirmations {
+                button.approvalPolicy = .never
+                await library.update(button)
+            }
+
+            await runNow(button, values: values)
+        }
+    }
+
+    private func cancelPendingRun() {
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+            pendingRunButton = nil
+            skipFutureConfirmations = false
+        }
+    }
+
+    private func run(_ button: ActionButton) {
+        Task {
+            await runNow(button, values: defaultValues(for: button))
+        }
+    }
+
+    private func runNow(_ button: ActionButton, values: [String: String]) async {
+        let currentButton = library.button(id: button.id) ?? button
+        _ = await library.run(
+            currentButton,
+            values: values,
+            configurationOverride: currentButton.workflow.steps.first?.aiConfiguration
+        )
+    }
+
+    private func defaultValues(for button: ActionButton) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: button.workflow.inputs.map { ($0.key, $0.defaultValue) })
+    }
+
+    private func delete(_ button: ActionButton) {
+        Task {
+            await library.delete(button)
+            if detailSelection?.buttonID == button.id {
+                withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+                    detailSelection = nil
+                }
+            }
+            if pendingRunButton?.id == button.id {
+                pendingRunButton = nil
+                skipFutureConfirmations = false
+            }
+        }
+    }
+
+    private func closeDetail() {
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+            detailSelection = nil
+        }
     }
 
     private func handleImport(_ result: Result<URL, Error>) async {

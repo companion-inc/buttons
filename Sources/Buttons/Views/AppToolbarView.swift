@@ -14,10 +14,10 @@ struct AppToolbarView: View {
             Spacer()
 
             Button("Import", systemImage: "square.and.arrow.down", action: importAction)
-                .buttonStyle(.bordered)
+                .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.54)))
 
             Button("New", systemImage: "plus", action: newAction)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(ChromePillButtonStyle(tint: .black))
         }
         .padding(.horizontal, 28)
         .padding(.top, 24)
