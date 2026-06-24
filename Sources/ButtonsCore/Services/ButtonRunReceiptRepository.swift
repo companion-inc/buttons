@@ -2,26 +2,37 @@ import Foundation
 
 public actor ButtonRunReceiptRepository {
     private let fileURL: URL
+    private let legacyReadURL: URL?
 
-    public init(fileURL: URL) {
+    public init(fileURL: URL, legacyReadURL: URL? = nil) {
         self.fileURL = fileURL
+        self.legacyReadURL = legacyReadURL
     }
 
     public static func production() -> ButtonRunReceiptRepository {
-        let supportURL = FileManager.default.urls(
+        let legacySupportURL = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
-        let directoryURL = supportURL.appending(path: "Buttons", directoryHint: .isDirectory)
-        return ButtonRunReceiptRepository(fileURL: directoryURL.appending(path: "runs.json"))
+            .appending(path: "Buttons", directoryHint: .isDirectory)
+
+        return ButtonRunReceiptRepository(
+            fileURL: ButtonAutomationWorkspace.homeURL.appending(path: "runs.json"),
+            legacyReadURL: legacySupportURL.appending(path: "runs.json")
+        )
     }
 
     public func load() throws -> [ButtonRunReceipt] {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        let readURL: URL
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            readURL = fileURL
+        } else if let legacyReadURL, FileManager.default.fileExists(atPath: legacyReadURL.path) {
+            readURL = legacyReadURL
+        } else {
             return []
         }
 
-        let data = try Data(contentsOf: fileURL)
+        let data = try Data(contentsOf: readURL)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode([ButtonRunReceipt].self, from: data)

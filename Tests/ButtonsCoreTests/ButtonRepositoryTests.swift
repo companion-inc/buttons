@@ -42,4 +42,14 @@ struct ButtonRepositoryTests {
         #expect(button.workflow.inputs.first?.defaultValue == "companion-inc/buttons")
         #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)
     }
+
+    @Test("Production button workspace lives in the home dot-buttons directory")
+    func productionWorkspaceLivesInHomeDotButtons() {
+        let workspace = ButtonAutomationWorkspace.production()
+        let expectedRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".buttons", directoryHint: .isDirectory)
+            .appending(path: "buttons", directoryHint: .isDirectory)
+
+        #expect(workspace.rootURL.path == expectedRoot.path)
+    }
 }

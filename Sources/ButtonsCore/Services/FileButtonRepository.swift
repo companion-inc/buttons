@@ -2,26 +2,37 @@ import Foundation
 
 public actor FileButtonRepository {
     private let fileURL: URL
+    private let legacyReadURL: URL?
 
-    public init(fileURL: URL) {
+    public init(fileURL: URL, legacyReadURL: URL? = nil) {
         self.fileURL = fileURL
+        self.legacyReadURL = legacyReadURL
     }
 
     public static func production() -> FileButtonRepository {
-        let supportURL = FileManager.default.urls(
+        let legacySupportURL = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0]
-        let directoryURL = supportURL.appending(path: "Buttons", directoryHint: .isDirectory)
-        return FileButtonRepository(fileURL: directoryURL.appending(path: "buttons.json"))
+            .appending(path: "Buttons", directoryHint: .isDirectory)
+
+        return FileButtonRepository(
+            fileURL: ButtonAutomationWorkspace.homeURL.appending(path: "buttons.json"),
+            legacyReadURL: legacySupportURL.appending(path: "buttons.json")
+        )
     }
 
     public func load() throws -> [ActionButton] {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        let readURL: URL
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            readURL = fileURL
+        } else if let legacyReadURL, FileManager.default.fileExists(atPath: legacyReadURL.path) {
+            readURL = legacyReadURL
+        } else {
             return ButtonSeed.defaults
         }
 
-        let data = try Data(contentsOf: fileURL)
+        let data = try Data(contentsOf: readURL)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode([ActionButton].self, from: data)

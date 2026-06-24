@@ -35,12 +35,18 @@ struct WorkflowRunnerTests {
         let buttonID = UUID()
         let rootURL = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let targetURL = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: targetURL, withIntermediateDirectories: true)
         let workspace = ButtonAutomationWorkspace(rootURL: rootURL)
         let buttonWorkspaceURL = try workspace.ensureWorkspace(for: buttonID)
         let scriptURL = workspace.scriptURL(for: buttonID)
         let script = """
         #!/bin/zsh
         echo "cached:$BUTTON_INPUT_TOPIC"
+        echo "workspace:$PWD"
+        echo "target:$BUTTON_TARGET_DIRECTORY"
+        echo "skills:$BUTTON_SKILLS_DIRECTORY"
         """
         try script.write(to: scriptURL, atomically: true, encoding: .utf8)
 
@@ -61,7 +67,7 @@ struct WorkflowRunnerTests {
                         kind: .askAI,
                         value: "Run {{topic}}",
                         aiConfiguration: AIConfiguration(
-                            workingDirectory: buttonWorkspaceURL.path
+                            workingDirectory: targetURL.path
                         )
                     ),
                 ]
@@ -70,9 +76,16 @@ struct WorkflowRunnerTests {
         let runner = WorkflowRunner(automationWorkspace: workspace)
 
         let receipt = await runner.run(button: button, values: ["topic": "script"])
+        let shellWorkspacePath = buttonWorkspaceURL.path.hasPrefix("/var/")
+            ? "/private\(buttonWorkspaceURL.path)"
+            : buttonWorkspaceURL.path
 
         #expect(receipt.status == .succeeded)
         #expect(receipt.output.contains("Ran cached workflow script."))
         #expect(receipt.output.contains("cached:script"))
+        #expect(receipt.output.contains("workspace:\(shellWorkspacePath)"))
+        #expect(receipt.output.contains("target:\(targetURL.path)"))
+        #expect(receipt.output.contains("skills:\(workspace.skillsURL(for: buttonID).path)"))
+        #expect(FileManager.default.fileExists(atPath: workspace.logsURL(for: buttonID).path))
     }
 }

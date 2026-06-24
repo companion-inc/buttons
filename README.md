@@ -6,7 +6,15 @@ The app opens directly to a button board. Every button is a background-agent wor
 
 Buttons does not store OpenAI or Anthropic API keys. It runs the locally installed Codex or Claude Code CLI using the login already present on the Mac.
 
-On first run, a button asks the selected local agent to extract the repetitive workflow into a reusable `run.zsh` script under Application Support. Later clicks run that script first so the button gets cheaper. If the script breaks, Buttons sends the failure and current script back to the agent, repairs it in place, and retries once.
+Buttons keeps its runtime state in `~/.buttons`. Each button gets its own workspace at `~/.buttons/buttons/<button-id>/` with:
+
+- `scripts/run.zsh` for the self-healing reusable workflow.
+- `button.md` for the current button instructions and inputs.
+- `skills/` for button-specific reusable notes and helper instructions.
+- `logs/` for per-run logs.
+- `agent/` for agent scratch files.
+
+On first run, a button asks the selected local agent to extract the repetitive workflow into its own reusable script. Later clicks run that script first so the button gets cheaper. If the script breaks, Buttons sends the failure and current script back to the agent, repairs it in place, and retries once.
 
 ## Build
 
@@ -24,8 +32,8 @@ open .build/debug/Buttons.app
 - Optional model override
 - Thinking level
 - Permission mode
-- Per-button reusable script
-- Per-button run history and logs
+- Per-button workspace under `~/.buttons/buttons/<button-id>/`
+- Per-button reusable script, skills folder, and logs
 
 Dangerous agent buttons require approval by default.
 
