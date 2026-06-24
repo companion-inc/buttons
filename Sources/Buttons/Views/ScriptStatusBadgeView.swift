@@ -2,7 +2,7 @@ import ButtonsCore
 import SwiftUI
 
 struct ScriptStatusBadgeView: View {
-    let buttonID: UUID
+    let button: ActionButton
 
     var body: some View {
         HStack(spacing: 6) {
@@ -21,6 +21,6 @@ struct ScriptStatusBadgeView: View {
     }
 
     private var isScriptReady: Bool {
-        ButtonAutomationWorkspace.production().scriptExists(for: buttonID)
+        ButtonAutomationWorkspace.production().scriptExists(for: button)
     }
 }

@@ -4,24 +4,27 @@ import SwiftUI
 struct RunConfirmationView: View {
     let button: ActionButton
     let namespace: Namespace.ID
-    @Binding var doNotAskAgain: Bool
+    let isRunning: Bool
+    let receipt: ButtonRunReceipt?
     let cancelAction: () -> Void
-    let runAction: ([String: String]) -> Void
-    @State private var values: [String: String]
+    let runAction: (String) -> Void
+    @State private var prompt: String
 
     init(
         button: ActionButton,
         namespace: Namespace.ID,
-        doNotAskAgain: Binding<Bool>,
+        isRunning: Bool,
+        receipt: ButtonRunReceipt?,
         cancelAction: @escaping () -> Void,
-        runAction: @escaping ([String: String]) -> Void
+        runAction: @escaping (String) -> Void
     ) {
         self.button = button
         self.namespace = namespace
-        _doNotAskAgain = doNotAskAgain
+        self.isRunning = isRunning
+        self.receipt = receipt
         self.cancelAction = cancelAction
         self.runAction = runAction
-        _values = State(initialValue: Dictionary(uniqueKeysWithValues: button.workflow.inputs.map { ($0.key, $0.defaultValue) }))
+        _prompt = State(initialValue: button.workflow.steps.first?.value ?? button.taskDescription)
     }
 
     var body: some View {
@@ -41,6 +44,7 @@ struct RunConfirmationView: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 header
+
                 Text(button.taskDescription)
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -50,24 +54,11 @@ struct RunConfirmationView: View {
                     .background(Color.black.opacity(0.05))
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                inputFields
-
-                Toggle("Do not ask again for this button", isOn: $doNotAskAgain)
-                    .toggleStyle(.checkbox)
-                    .font(.callout.weight(.medium))
-
-                HStack(spacing: 12) {
-                    Button("Cancel", systemImage: "xmark", action: cancelAction)
-                        .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.46)))
-
-                    Spacer()
-
-                    Button("Run", systemImage: "play.fill", action: run)
-                        .buttonStyle(AgentLaunchButtonStyle(color: button.face.color.swiftUIColor))
-                }
+                runContent
+                controls
             }
             .padding(24)
-            .frame(width: 560)
+            .frame(width: 600)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             .overlay(
@@ -78,6 +69,56 @@ struct RunConfirmationView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var runContent: some View {
+        if let receipt {
+            RunHistoryRow(receipt: receipt)
+            workspaceCard(title: "Saved in", detail: workspacePath)
+        } else if isRunning {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Running \(provider.shortTitle)")
+                        .font(.headline)
+                }
+
+                workspaceCard(title: "Workspace", detail: workspacePath)
+                workspaceCard(title: "Script", detail: scriptPath)
+
+                Text("Buttons is building, running, or repairing this button's reusable script.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.black.opacity(0.045))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                DetailTextField(label: "Run prompt", text: $prompt, axis: .vertical, minHeight: 168)
+
+                workspaceCard(title: "Workspace", detail: workspacePath)
+            }
+        }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 12) {
+            Button(receipt == nil ? "Cancel" : "Done", systemImage: receipt == nil ? "xmark" : "checkmark", action: cancelAction)
+                .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.46)))
+                .disabled(isRunning)
+
+            Spacer()
+
+            if receipt == nil {
+                Button(isRunning ? "Running..." : "Run", systemImage: "play.fill", action: run)
+                    .buttonStyle(AgentLaunchButtonStyle(color: button.face.color.swiftUIColor))
+                    .disabled(isRunning)
+            }
+        }
     }
 
     private var header: some View {
@@ -112,19 +153,33 @@ struct RunConfirmationView: View {
         }
     }
 
+    private func workspaceCard(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+
+            Text(detail)
+                .font(.caption.monospaced())
+                .lineLimit(2)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(.black.opacity(0.045))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private var provider: AIProvider {
         button.workflow.steps.first?.aiConfiguration?.provider ?? .codex
     }
 
-    @ViewBuilder
-    private var inputFields: some View {
-        if !button.workflow.inputs.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(button.workflow.inputs) { input in
-                    DetailTextField(label: input.label, text: valueBinding(for: input))
-                }
-            }
-        }
+    private var workspacePath: String {
+        ButtonAutomationWorkspace.production().workspaceURL(for: button).path
+    }
+
+    private var scriptPath: String {
+        ButtonAutomationWorkspace.production().scriptURL(for: button).path
     }
 
     private var screenBackground: some ShapeStyle {
@@ -139,14 +194,7 @@ struct RunConfirmationView: View {
         )
     }
 
-    private func valueBinding(for input: ButtonInputField) -> Binding<String> {
-        Binding(
-            get: { values[input.key, default: input.defaultValue] },
-            set: { values[input.key] = $0 }
-        )
-    }
-
     private func run() {
-        runAction(values)
+        runAction(prompt)
     }
 }

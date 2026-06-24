@@ -19,8 +19,7 @@ public enum ButtonSeed {
                             provider: .codex,
                             model: "",
                             systemPrompt: "Be direct and operational. Return the plan, not a chatty explanation.",
-                            executionMode: .workspaceWrite,
-                            workingDirectory: AIConfiguration.defaultWorkingDirectory
+                            executionMode: .workspaceWrite
                         )
                     ),
                 ]
@@ -33,23 +32,19 @@ public enum ButtonSeed {
             title: "Clean Inbox",
             subtitle: "Triage",
             category: "Inbox",
-            taskDescription: "Create an inbox triage plan for a named mailbox.",
+            taskDescription: "Create an inbox triage plan.",
             face: ButtonFace(symbolName: "tray.full", color: .mint, surface: .rubber),
             workflow: ButtonWorkflow(
-                inputs: [
-                    ButtonInputField(key: "inbox", label: "Inbox", placeholder: "Work, personal, support", defaultValue: "work"),
-                ],
                 steps: [
                     WorkflowStep(
                         title: "Workflow",
                         kind: .askAI,
-                        value: "Clean my {{inbox}} inbox conceptually: group urgent, needs reply, waiting, receipts, and archive candidates. Return the exact queue order and next actions.",
+                        value: "Clean my work inbox conceptually: group urgent, needs reply, waiting, receipts, and archive candidates. Return the exact queue order and next actions. Use the mailbox named in this run prompt when I add one.",
                         aiConfiguration: AIConfiguration(
                             provider: .codex,
                             model: "",
                             systemPrompt: "Be concise and action-oriented. Do not invent messages you cannot inspect.",
-                            executionMode: .workspaceWrite,
-                            workingDirectory: AIConfiguration.defaultWorkingDirectory
+                            executionMode: .workspaceWrite
                         )
                     ),
                 ]
@@ -65,20 +60,16 @@ public enum ButtonSeed {
             taskDescription: "Handle pull request context for a repository.",
             face: ButtonFace(symbolName: "point.topleft.down.curvedto.point.bottomright.up", color: .cobalt, surface: .metal),
             workflow: ButtonWorkflow(
-                inputs: [
-                    ButtonInputField(key: "repo", label: "Repo URL", placeholder: "https://github.com/org/repo", defaultValue: "https://github.com"),
-                ],
                 steps: [
                     WorkflowStep(
                         title: "Workflow",
                         kind: .askAI,
-                        value: "Use {{repo}} as the target repository. Find the pull requests that need attention and tell me the highest-leverage next move.",
+                        value: "Find pull requests that need attention for the repository named in this run prompt. When no repository is named, use companion-inc/buttons. Return the highest-leverage next move and cite what you checked.",
                         aiConfiguration: AIConfiguration(
                             provider: .codex,
                             model: "",
                             systemPrompt: "Prefer concrete repo evidence. State what you checked.",
-                            executionMode: .workspaceWrite,
-                            workingDirectory: AIConfiguration.defaultWorkingDirectory
+                            executionMode: .workspaceWrite
                         )
                     ),
                 ]
@@ -94,20 +85,16 @@ public enum ButtonSeed {
             taskDescription: "Send a reusable task to the local Codex or Claude Code CLI.",
             face: ButtonFace(symbolName: "terminal.fill", color: .rose, surface: .raised),
             workflow: ButtonWorkflow(
-                inputs: [
-                    ButtonInputField(key: "topic", label: "Topic", placeholder: "What should it work on?", defaultValue: "Buttons"),
-                ],
                 steps: [
                     WorkflowStep(
                         title: "Workflow",
                         kind: .askAI,
-                        value: "Inspect the current workspace and give the next concrete move for {{topic}}.",
+                        value: "Inspect the current button workspace, complete the repetitive task described in this run prompt, and leave behind a reusable script or durable notes that make the next click cheaper.",
                         aiConfiguration: AIConfiguration(
                             provider: .codex,
                             model: "",
                             systemPrompt: "Be direct. Return a useful result, not a conversation.",
-                            executionMode: .workspaceWrite,
-                            workingDirectory: AIConfiguration.defaultWorkingDirectory
+                            executionMode: .workspaceWrite
                         )
                     ),
                 ]
@@ -120,40 +107,27 @@ public enum ButtonSeed {
 
     public static let starRepo = ActionButton(
         id: UUID(uuidString: "B077005C-57A8-4B3C-A8F5-011C5A9B0A11") ?? UUID(),
+        slug: "star-repo",
         title: "Star Repo",
         subtitle: "GitHub",
         category: "Code",
         taskDescription: "Star a GitHub repository and open it.",
         face: ButtonFace(symbolName: "star.fill", color: .cobalt, surface: .raised),
         workflow: ButtonWorkflow(
-            inputs: [
-                ButtonInputField(
-                    key: "repo",
-                    label: "Repo",
-                    placeholder: "owner/name",
-                    defaultValue: "companion-inc/buttons"
-                ),
-            ],
             steps: [
                 WorkflowStep(
                     title: "Workflow",
                     kind: .askAI,
                     value: """
-                    Star the GitHub repository {{repo}} and open it in the browser.
+                    Star the GitHub repository companion-inc/buttons and open it in the browser.
 
-                    The reusable script should:
-                    - Read BUTTON_INPUT_REPO.
-                    - Accept either owner/name or a github.com URL.
-                    - Use `gh api -X PUT /user/starred/{owner}/{repo}` when GitHub CLI auth is available.
-                    - Open https://github.com/{owner}/{repo}.
-                    - Print whether the star succeeded or what auth/repo issue blocked it.
+                    Build the reusable script so this button can later handle a different repository when the run prompt names one. Accept either owner/name or a github.com URL from BUTTON_RUN_PROMPT. Use `gh api -X PUT /user/starred/{owner}/{repo}` when GitHub CLI auth is available, then open https://github.com/{owner}/{repo}. Print what happened and what blocked the star when auth or repo access fails.
                     """,
                     aiConfiguration: AIConfiguration(
                         provider: .codex,
                         model: "",
                         systemPrompt: "Be operational. Produce and run the reusable script; do not stop at an explanation.",
-                        executionMode: .workspaceWrite,
-                        workingDirectory: AIConfiguration.defaultWorkingDirectory
+                        executionMode: .workspaceWrite
                     )
                 ),
             ]

@@ -9,7 +9,8 @@ struct AppRootView: View {
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var pendingRunButton: ActionButton?
-    @State private var skipFutureConfirmations = false
+    @State private var pendingRunReceipt: ButtonRunReceipt?
+    @State private var isPendingRunRunning = false
     @Namespace private var buttonZoomNamespace
 
     var body: some View {
@@ -58,7 +59,8 @@ struct AppRootView: View {
                 RunConfirmationView(
                     button: pendingRunButton,
                     namespace: buttonZoomNamespace,
-                    doNotAskAgain: $skipFutureConfirmations,
+                    isRunning: isPendingRunRunning,
+                    receipt: pendingRunReceipt,
                     cancelAction: cancelPendingRun,
                     runAction: confirmPendingRun
                 )
@@ -123,7 +125,8 @@ struct AppRootView: View {
     private func openButton(_ button: ActionButton) {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
             pendingRunButton = nil
-            skipFutureConfirmations = false
+            pendingRunReceipt = nil
+            isPendingRunRunning = false
             if detailSelection?.buttonID == button.id {
                 detailSelection = nil
             } else {
@@ -154,63 +157,81 @@ struct AppRootView: View {
     }
 
     private func requestRun(_ button: ActionButton) {
-        guard button.requiresRunConfirmation else {
-            run(button)
-            return
-        }
-
         withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
             detailSelection = nil
             pendingRunButton = button
-            skipFutureConfirmations = false
+            pendingRunReceipt = nil
+            isPendingRunRunning = false
         }
-    }
 
-    private func confirmPendingRun(values: [String: String]) {
-        guard var button = pendingRunButton else {
+        guard shouldStartImmediately(button) else {
             return
         }
 
-        let shouldSkipFutureConfirmations = skipFutureConfirmations
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
-            pendingRunButton = nil
-            skipFutureConfirmations = false
+        Task {
+            await startPendingRun(
+                button: button,
+                prompt: defaultPrompt(for: button)
+            )
+        }
+    }
+
+    private func confirmPendingRun(prompt: String) {
+        guard let button = pendingRunButton else {
+            return
         }
 
         Task {
-            if shouldSkipFutureConfirmations {
-                button.approvalPolicy = .never
-                await library.update(button)
-            }
-
-            await runNow(button, values: values)
+            await startPendingRun(
+                button: button,
+                prompt: prompt
+            )
         }
     }
 
     private func cancelPendingRun() {
+        guard !isPendingRunRunning else {
+            return
+        }
+
         withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
             pendingRunButton = nil
-            skipFutureConfirmations = false
+            pendingRunReceipt = nil
+            isPendingRunRunning = false
         }
     }
 
-    private func run(_ button: ActionButton) {
-        Task {
-            await runNow(button, values: defaultValues(for: button))
+    private func startPendingRun(
+        button: ActionButton,
+        prompt: String
+    ) async {
+        guard !isPendingRunRunning else {
+            return
         }
+
+        isPendingRunRunning = true
+        pendingRunReceipt = nil
+        let receipt = await runNow(button, prompt: prompt)
+        pendingRunReceipt = receipt
+        isPendingRunRunning = false
     }
 
-    private func runNow(_ button: ActionButton, values: [String: String]) async {
+    @discardableResult
+    private func runNow(_ button: ActionButton, prompt: String) async -> ButtonRunReceipt {
         let currentButton = library.button(id: button.id) ?? button
-        _ = await library.run(
+        return await library.run(
             currentButton,
-            values: values,
+            prompt: prompt,
             configurationOverride: currentButton.workflow.steps.first?.aiConfiguration
         )
     }
 
-    private func defaultValues(for button: ActionButton) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: button.workflow.inputs.map { ($0.key, $0.defaultValue) })
+    private func defaultPrompt(for button: ActionButton) -> String {
+        button.workflow.steps.first?.value ?? button.taskDescription
+    }
+
+    private func shouldStartImmediately(_ button: ActionButton) -> Bool {
+        !button.requiresRunConfirmation && ButtonAutomationWorkspace.production().scriptExists(for: button)
     }
 
     private func delete(_ button: ActionButton) {
@@ -223,7 +244,8 @@ struct AppRootView: View {
             }
             if pendingRunButton?.id == button.id {
                 pendingRunButton = nil
-                skipFutureConfirmations = false
+                pendingRunReceipt = nil
+                isPendingRunRunning = false
             }
         }
     }

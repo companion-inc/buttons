@@ -2,6 +2,7 @@ import Foundation
 
 public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
+    public var slug: String
     public var title: String
     public var subtitle: String
     public var category: String
@@ -15,6 +16,7 @@ public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
 
     public init(
         id: UUID = UUID(),
+        slug: String? = nil,
         title: String,
         subtitle: String,
         category: String = "General",
@@ -27,6 +29,7 @@ public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
         updatedAt: Date = Date()
     ) {
         self.id = id
+        self.slug = ButtonWorkspaceSlug.make(from: slug ?? title)
         self.title = title
         self.subtitle = subtitle
         self.category = category
@@ -51,7 +54,14 @@ public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
     }
 
     public var requiresRunConfirmation: Bool {
-        approvalPolicy != .never
+        switch approvalPolicy {
+        case .always:
+            true
+        case .never:
+            false
+        case .automatic:
+            needsApproval
+        }
     }
 
     public func updated(now: Date = Date()) -> ActionButton {
@@ -62,6 +72,7 @@ public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case slug
         case title
         case subtitle
         case category
@@ -79,6 +90,7 @@ public struct ActionButton: Codable, Equatable, Identifiable, Sendable {
 
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         title = try container.decode(String.self, forKey: .title)
+        slug = ButtonWorkspaceSlug.make(from: try container.decodeIfPresent(String.self, forKey: .slug) ?? title)
         subtitle = try container.decode(String.self, forKey: .subtitle)
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? "General"
         taskDescription = try container.decode(String.self, forKey: .taskDescription)

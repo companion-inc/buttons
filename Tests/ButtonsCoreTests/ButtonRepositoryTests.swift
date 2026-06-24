@@ -38,8 +38,8 @@ struct ButtonRepositoryTests {
         let button = ButtonSeed.defaults[0]
 
         #expect(button.title == "Star Repo")
-        #expect(button.workflow.inputs.first?.key == "repo")
-        #expect(button.workflow.inputs.first?.defaultValue == "companion-inc/buttons")
+        #expect(button.slug == "star-repo")
+        #expect(button.workflow.steps.first?.value.contains("companion-inc/buttons") == true)
         #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)
     }
 

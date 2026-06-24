@@ -16,13 +16,26 @@ struct ButtonTemplateTests {
         #expect(decoded.workflow.steps == button.workflow.steps)
     }
 
-    @Test("Template rendering replaces input tokens")
-    func templateRenderingReplacesTokens() {
-        let rendered = TemplateRenderer.render(
-            "Open {{repo}} for {{person}}",
-            values: ["repo": "Buttons", "person": "Advait"]
-        )
+    @Test("Legacy workflow inputs fold into the saved prompt")
+    func legacyWorkflowInputsFoldIntoSavedPrompt() throws {
+        let data = """
+        {
+          "inputs": [
+            { "key": "repo", "label": "Repo", "defaultValue": "companion-inc/buttons" }
+          ],
+          "steps": [
+            {
+              "id": "9D4C6A7B-8A31-4C7A-A15B-AC4C70C31289",
+              "title": "Workflow",
+              "kind": "askAI",
+              "value": "Star {{repo}}"
+            }
+          ]
+        }
+        """.data(using: .utf8)!
 
-        #expect(rendered == "Open Buttons for Advait")
+        let workflow = try JSONDecoder().decode(ButtonWorkflow.self, from: data)
+
+        #expect(workflow.steps.first?.value == "Star companion-inc/buttons")
     }
 }

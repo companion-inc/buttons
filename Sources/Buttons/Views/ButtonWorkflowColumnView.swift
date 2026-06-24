@@ -10,7 +10,6 @@ struct ButtonWorkflowColumnView: View {
     let deleteAction: (ActionButton) -> Void
 
     @State private var draft: ButtonDraft
-    @State private var values: [String: String]
     @State private var latestReceipt: ButtonRunReceipt?
     @State private var isRunning = false
     @State private var showAdvanced = false
@@ -28,7 +27,6 @@ struct ButtonWorkflowColumnView: View {
         self.shareAction = shareAction
         self.deleteAction = deleteAction
         _draft = State(initialValue: ButtonDraft(button: button))
-        _values = State(initialValue: Dictionary(uniqueKeysWithValues: button.workflow.inputs.map { ($0.key, $0.defaultValue) }))
     }
 
     var body: some View {
@@ -74,7 +72,7 @@ struct ButtonWorkflowColumnView: View {
                         .clipShape(Capsule())
 
                     AgentBadgeView(provider: draft.aiProvider)
-                    ScriptStatusBadgeView(buttonID: draft.id)
+                    ScriptStatusBadgeView(button: draft.button)
                 }
             }
 
@@ -92,10 +90,8 @@ struct ButtonWorkflowColumnView: View {
 
     private var workflowSection: some View {
         DetailCard(title: "Workflow") {
-            DetailTextField(label: "Goal", text: $draft.taskDescription, axis: .vertical)
-                .lineLimit(2...4)
-            DetailTextField(label: "Steps", text: $draft.stepValue, axis: .vertical)
-                .lineLimit(6...12)
+            DetailTextField(label: "What this button does", text: $draft.taskDescription, axis: .vertical, minHeight: 72)
+            DetailTextField(label: "Run prompt", text: $draft.stepValue, axis: .vertical, minHeight: 170)
         }
     }
 
@@ -130,6 +126,8 @@ struct ButtonWorkflowColumnView: View {
                 DetailTextField(label: "Category", text: $draft.category)
             }
 
+            DetailTextField(label: "Workspace slug", text: $draft.slug)
+
             HStack(spacing: 12) {
                 DetailMenuPicker(label: "Color", selection: $draft.color) {
                     ForEach(ButtonColor.allCases) { color in
@@ -143,7 +141,7 @@ struct ButtonWorkflowColumnView: View {
                     }
                 }
 
-                DetailMenuPicker(label: "Confirm", selection: $draft.approvalPolicy) {
+                DetailMenuPicker(label: "Run safety", selection: $draft.approvalPolicy) {
                     ForEach(ApprovalPolicy.allCases) { policy in
                         Text(policy.title).tag(policy)
                     }
@@ -159,19 +157,11 @@ struct ButtonWorkflowColumnView: View {
                     DetailTextField(label: "Caption", text: $draft.subtitle)
                     DetailTextField(label: "Symbol", text: $draft.symbolName)
                     DetailTextField(label: "Model", text: $draft.aiModel)
-                    DetailTextField(label: "Directory", text: $draft.aiWorkingDirectory)
-                    DetailTextField(label: "Agent instruction", text: $draft.aiSystemPrompt, axis: .vertical)
-                        .lineLimit(2...4)
-
-                    Divider()
-
-                    DetailTextField(label: "Input key", text: $draft.inputKey)
-                    DetailTextField(label: "Input label", text: $draft.inputLabel)
-                    DetailTextField(label: "Input default", text: $draft.inputDefault)
+                    DetailTextField(label: "Agent instruction", text: $draft.aiSystemPrompt, axis: .vertical, minHeight: 78)
                 }
                 .padding(.top, 10)
             } label: {
-                Text("Model, directory, icon, and per-run input")
+                Text("Model, icon, and agent instruction")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.primary)
             }
@@ -180,17 +170,6 @@ struct ButtonWorkflowColumnView: View {
 
     private var runSection: some View {
         VStack(spacing: 12) {
-            if !button.workflow.inputs.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(button.workflow.inputs) { input in
-                        DetailTextField(
-                            label: input.label,
-                            text: valueBinding(for: input)
-                        )
-                    }
-                }
-            }
-
             HStack(spacing: 10) {
                 Button("Save", systemImage: "checkmark", action: save)
                     .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.66)))
@@ -212,7 +191,7 @@ struct ButtonWorkflowColumnView: View {
                 }
                 .buttonStyle(ChromePillButtonStyle(tint: .red.opacity(0.82)))
 
-                Button(isRunning ? "Running..." : "Run \(draft.aiProvider.shortTitle)", systemImage: "play.fill", action: run)
+                Button(isRunning ? "Running..." : "Run", systemImage: "play.fill", action: run)
                     .buttonStyle(AgentLaunchButtonStyle(color: draft.color.swiftUIColor))
                     .disabled(isRunning)
             }
@@ -255,7 +234,7 @@ struct ButtonWorkflowColumnView: View {
             await upsert(currentButton)
             let receipt = await library.run(
                 currentButton,
-                values: values,
+                prompt: currentButton.workflow.steps.first?.value ?? "",
                 configurationOverride: currentButton.workflow.steps.first?.aiConfiguration
             )
             latestReceipt = receipt
@@ -275,10 +254,4 @@ struct ButtonWorkflowColumnView: View {
         }
     }
 
-    private func valueBinding(for input: ButtonInputField) -> Binding<String> {
-        Binding(
-            get: { values[input.key, default: input.defaultValue] },
-            set: { values[input.key] = $0 }
-        )
-    }
 }

@@ -48,7 +48,9 @@ public final class ButtonLibrary {
     }
 
     public func add(_ button: ActionButton) async {
-        buttons.insert(button.updated(), at: 0)
+        var copy = Self.normalizedSlug(button)
+        copy.slug = Self.uniqueSlug(copy.slug, excluding: copy.id, in: buttons)
+        buttons.insert(copy.updated(), at: 0)
         await save()
     }
 
@@ -56,7 +58,9 @@ public final class ButtonLibrary {
         guard let index = buttons.firstIndex(where: { $0.id == button.id }) else {
             return
         }
-        buttons[index] = button.updated()
+        var copy = Self.normalizedSlug(button)
+        copy.slug = Self.uniqueSlug(copy.slug, excluding: copy.id, in: buttons)
+        buttons[index] = copy.updated()
         await save()
     }
 
@@ -70,19 +74,19 @@ public final class ButtonLibrary {
     }
 
     public func importButton(from data: Data) async throws {
-        let button = Self.migratedButton(try ButtonTemplateCodec.decode(data))
+        let button = Self.normalizedSlug(Self.migratedButton(try ButtonTemplateCodec.decode(data)))
         await add(button)
     }
 
     @discardableResult
     public func run(
         _ button: ActionButton,
-        values: [String: String],
+        prompt: String,
         configurationOverride: AIConfiguration? = nil
     ) async -> ButtonRunReceipt {
         let receipt = await runner.run(
             button: button,
-            values: values,
+            prompt: prompt,
             configurationOverride: configurationOverride
         )
         receipts.insert(receipt, at: 0)
@@ -139,6 +143,8 @@ public final class ButtonLibrary {
             copy.subtitle = migratedSubtitle(for: copy)
         }
 
+        copy.slug = ButtonWorkspaceSlug.make(from: copy.slug.isEmpty ? copy.title : copy.slug)
+
         if copy.category == "General" {
             copy.category = migratedCategory(for: copy)
         }
@@ -191,7 +197,7 @@ public final class ButtonLibrary {
             copy.insert(ButtonSeed.starRepo, at: 0)
         }
 
-        return copy
+        return uniquedSlugs(copy.map(normalizedSlug))
     }
 
     private static func migratedConfiguration(from configuration: AIConfiguration?) -> AIConfiguration {
@@ -200,17 +206,52 @@ public final class ButtonLibrary {
                 provider: .codex,
                 model: "",
                 systemPrompt: "Be direct. Complete the button's workflow as an operational task.",
-                executionMode: .workspaceWrite,
-                workingDirectory: AIConfiguration.defaultWorkingDirectory
+                executionMode: .workspaceWrite
             )
         }
 
         configuration.model = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        configuration.workingDirectory = configuration.workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? AIConfiguration.defaultWorkingDirectory
-            : configuration.workingDirectory
 
         return configuration
+    }
+
+    private static func normalizedSlug(_ button: ActionButton) -> ActionButton {
+        var copy = button
+        copy.slug = ButtonWorkspaceSlug.make(from: copy.slug.isEmpty ? copy.title : copy.slug)
+        return copy
+    }
+
+    private static func uniquedSlugs(_ buttons: [ActionButton]) -> [ActionButton] {
+        var used = Set<String>()
+
+        return buttons.map { button in
+            var copy = normalizedSlug(button)
+            var candidate = copy.slug
+            var suffix = 2
+
+            while used.contains(candidate) {
+                candidate = "\(copy.slug)-\(suffix)"
+                suffix += 1
+            }
+
+            copy.slug = candidate
+            used.insert(candidate)
+            return copy
+        }
+    }
+
+    private static func uniqueSlug(_ slug: String, excluding id: UUID, in buttons: [ActionButton]) -> String {
+        let base = ButtonWorkspaceSlug.make(from: slug)
+        let used = Set(buttons.filter { $0.id != id }.map(\.slug))
+        var candidate = base
+        var suffix = 2
+
+        while used.contains(candidate) {
+            candidate = "\(base)-\(suffix)"
+            suffix += 1
+        }
+
+        return candidate
     }
 
     private static func promptValue(button: ActionButton, originalSteps: [WorkflowStep]) -> String {

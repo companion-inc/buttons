@@ -22,7 +22,7 @@ public final class WorkflowRunner {
 
     public func run(
         button: ActionButton,
-        values: [String: String],
+        prompt: String,
         configurationOverride: AIConfiguration? = nil
     ) async -> ButtonRunReceipt {
         let startedAt = Date()
@@ -33,7 +33,7 @@ public final class WorkflowRunner {
                 let result = try await run(
                     button: button,
                     step: step,
-                    values: values,
+                    prompt: prompt,
                     configurationOverride: configurationOverride
                 )
                 if !result.isEmpty {
@@ -50,7 +50,7 @@ public final class WorkflowRunner {
                 summary: "\(button.title) finished.",
                 output: outputs.joined(separator: "\n")
             )
-            try? automationWorkspace.writeRunLog(receipt)
+            try? automationWorkspace.writeRunLog(receipt, for: button)
             return receipt
         } catch {
             let receipt = ButtonRunReceipt(
@@ -62,7 +62,7 @@ public final class WorkflowRunner {
                 summary: "\(button.title) failed.",
                 output: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             )
-            try? automationWorkspace.writeRunLog(receipt)
+            try? automationWorkspace.writeRunLog(receipt, for: button)
             return receipt
         }
     }
@@ -70,27 +70,25 @@ public final class WorkflowRunner {
     private func run(
         button: ActionButton,
         step: WorkflowStep,
-        values: [String: String],
+        prompt: String,
         configurationOverride: AIConfiguration?
     ) async throws -> String {
-        let renderedValue = TemplateRenderer.render(step.value, values: values)
-
         switch step.kind {
         case .openURL:
-            guard let url = URL(string: renderedValue) else {
-                throw WorkflowRunError.invalidURL(renderedValue)
+            guard let url = URL(string: step.value) else {
+                throw WorkflowRunError.invalidURL(step.value)
             }
             NSWorkspace.shared.open(url)
-            return "Opened \(renderedValue)"
+            return "Opened \(step.value)"
 
         case .copyText:
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            pasteboard.setString(renderedValue, forType: .string)
+            pasteboard.setString(step.value, forType: .string)
             return "Copied text."
 
         case .runShortcut:
-            let shortcutName = renderedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let shortcutName = step.value.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !shortcutName.isEmpty else {
                 throw WorkflowRunError.missingShortcutName
             }
@@ -99,17 +97,16 @@ public final class WorkflowRunner {
             return output.isEmpty ? "Ran Shortcut \(shortcutName)." : output
 
         case .runShellCommand:
-            return try await shell.run(renderedValue)
+            return try await shell.run(step.value)
 
         case .showMessage:
-            return renderedValue
+            return step.value
 
         case .askAI:
             return try await runAgentTask(
                 button: button,
                 step: step,
-                values: values,
-                prompt: renderedValue,
+                prompt: prompt,
                 configurationOverride: configurationOverride
             )
         }
@@ -118,7 +115,6 @@ public final class WorkflowRunner {
     private func runAgentTask(
         button: ActionButton,
         step: WorkflowStep,
-        values: [String: String],
         prompt: String,
         configurationOverride: AIConfiguration?
     ) async throws -> String {
@@ -126,9 +122,8 @@ public final class WorkflowRunner {
             throw WorkflowRunError.missingAIConfiguration
         }
 
-        let workspaceURL = try automationWorkspace.ensureWorkspace(for: button.id)
-        let scriptURL = automationWorkspace.scriptURL(for: button.id)
-        let targetDirectory = normalizedWorkingDirectory(configuration.workingDirectory)
+        let workspaceURL = try automationWorkspace.ensureWorkspace(for: button)
+        let scriptURL = automationWorkspace.scriptURL(for: button)
         let agentConfiguration = buttonAgentConfiguration(
             configuration: configuration,
             workspaceURL: workspaceURL
@@ -136,26 +131,18 @@ public final class WorkflowRunner {
         let context = buttonContext(
             button: button,
             prompt: prompt,
-            values: values,
-            configuration: configuration,
             scriptURL: scriptURL,
-            workspaceURL: workspaceURL,
-            targetDirectory: targetDirectory
+            workspaceURL: workspaceURL
         )
-        try automationWorkspace.writeContext(context, for: button.id)
+        try automationWorkspace.writeContext(context, for: button)
 
-        if automationWorkspace.scriptExists(for: button.id) {
-            let firstRun = try await runCachedScript(
-                buttonID: button.id,
-                values: values,
-                configuration: configuration,
-                workspaceURL: workspaceURL,
-                targetDirectory: targetDirectory
-            )
+        if automationWorkspace.scriptExists(for: button) {
+            let firstRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
 
             if firstRun.succeeded {
                 return """
                 Ran cached workflow script.
+                Workspace: \(workspaceURL.path)
                 Script: \(scriptURL.path)
 
                 \(firstRun.combinedOutput)
@@ -166,25 +153,19 @@ public final class WorkflowRunner {
                 configuration: agentConfiguration,
                 prompt: repairPrompt(
                     context: context,
-                    script: automationWorkspace.readScript(for: button.id),
+                    script: automationWorkspace.readScript(for: button),
                     failure: firstRun.combinedOutput
-                ),
-                additionalWritableDirectories: [targetDirectory]
+                )
             )
-            automationWorkspace.markScriptExecutable(for: button.id)
+            automationWorkspace.markScriptExecutable(for: button)
 
-            let repairedRun = try await runCachedScript(
-                buttonID: button.id,
-                values: values,
-                configuration: configuration,
-                workspaceURL: workspaceURL,
-                targetDirectory: targetDirectory
-            )
+            let repairedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
 
             guard repairedRun.succeeded else {
                 throw WorkflowRunError.commandFailed(
                     """
                     Cached script failed, agent attempted repair, and the repaired script still failed.
+                    Workspace: \(workspaceURL.path)
                     Script: \(scriptURL.path)
 
                     Initial failure:
@@ -201,6 +182,7 @@ public final class WorkflowRunner {
 
             return """
             Self-healed workflow script and ran it.
+            Workspace: \(workspaceURL.path)
             Script: \(scriptURL.path)
 
             Script output:
@@ -213,12 +195,11 @@ public final class WorkflowRunner {
 
         let buildOutput = try await localAgents.run(
             configuration: agentConfiguration,
-            prompt: buildScriptPrompt(context: context),
-            additionalWritableDirectories: [targetDirectory]
+            prompt: buildScriptPrompt(context: context)
         )
-        automationWorkspace.markScriptExecutable(for: button.id)
+        automationWorkspace.markScriptExecutable(for: button)
 
-        guard automationWorkspace.scriptExists(for: button.id) else {
+        guard automationWorkspace.scriptExists(for: button) else {
             throw WorkflowRunError.commandFailed(
                 """
                 Agent did not create the reusable workflow script.
@@ -230,17 +211,12 @@ public final class WorkflowRunner {
             )
         }
 
-        let generatedRun = try await runCachedScript(
-            buttonID: button.id,
-            values: values,
-            configuration: configuration,
-            workspaceURL: workspaceURL,
-            targetDirectory: targetDirectory
-        )
+        let generatedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
 
         if generatedRun.succeeded {
             return """
             Extracted workflow into a reusable script and ran it.
+            Workspace: \(workspaceURL.path)
             Script: \(scriptURL.path)
 
             Script output:
@@ -255,25 +231,19 @@ public final class WorkflowRunner {
             configuration: agentConfiguration,
             prompt: repairPrompt(
                 context: context,
-                script: automationWorkspace.readScript(for: button.id),
+                script: automationWorkspace.readScript(for: button),
                 failure: generatedRun.combinedOutput
-            ),
-            additionalWritableDirectories: [targetDirectory]
+            )
         )
-        automationWorkspace.markScriptExecutable(for: button.id)
+        automationWorkspace.markScriptExecutable(for: button)
 
-        let repairedRun = try await runCachedScript(
-            buttonID: button.id,
-            values: values,
-            configuration: configuration,
-            workspaceURL: workspaceURL,
-            targetDirectory: targetDirectory
-        )
+        let repairedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
 
         guard repairedRun.succeeded else {
             throw WorkflowRunError.commandFailed(
                 """
                 Agent created a script, attempted one repair, and the script still failed.
+                Workspace: \(workspaceURL.path)
                 Script: \(scriptURL.path)
 
                 Build log:
@@ -293,6 +263,7 @@ public final class WorkflowRunner {
 
         return """
         Extracted and self-healed workflow script.
+        Workspace: \(workspaceURL.path)
         Script: \(scriptURL.path)
 
         Script output:
@@ -307,69 +278,48 @@ public final class WorkflowRunner {
     }
 
     private func runCachedScript(
-        buttonID: UUID,
-        values: [String: String],
-        configuration: AIConfiguration,
-        workspaceURL: URL,
-        targetDirectory: String
+        button: ActionButton,
+        prompt: String,
+        workspaceURL: URL
     ) async throws -> CommandLineResult {
-        automationWorkspace.markScriptExecutable(for: buttonID)
+        automationWorkspace.markScriptExecutable(for: button)
         return try await commandLine.run(
             executableURL: URL(filePath: "/bin/zsh"),
-            arguments: [automationWorkspace.scriptURL(for: buttonID).path],
+            arguments: [automationWorkspace.scriptURL(for: button).path],
             currentDirectoryURL: workspaceURL,
-            environment: scriptEnvironment(
-                buttonID: buttonID,
-                values: values,
-                targetDirectory: targetDirectory
-            )
+            environment: scriptEnvironment(button: button, prompt: prompt)
         )
     }
 
-    private func scriptEnvironment(
-        buttonID: UUID,
-        values: [String: String],
-        targetDirectory: String
-    ) -> [String: String] {
+    private func scriptEnvironment(button: ActionButton, prompt: String) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
-        environment["BUTTON_WORKSPACE"] = automationWorkspace.workspaceURL(for: buttonID).path
-        environment["BUTTON_SCRIPT_PATH"] = automationWorkspace.scriptURL(for: buttonID).path
-        environment["BUTTON_SKILLS_DIRECTORY"] = automationWorkspace.skillsURL(for: buttonID).path
-        environment["BUTTON_LOGS_DIRECTORY"] = automationWorkspace.logsURL(for: buttonID).path
-        environment["BUTTON_AGENT_DIRECTORY"] = automationWorkspace.agentURL(for: buttonID).path
-        environment["BUTTON_TARGET_DIRECTORY"] = targetDirectory
-        environment["BUTTON_WORKING_DIRECTORY"] = targetDirectory
-
-        for (key, value) in values {
-            environment["BUTTON_INPUT_\(environmentKey(key))"] = value
-        }
-
+        environment["BUTTON_ID"] = button.id.uuidString
+        environment["BUTTON_SLUG"] = button.slug
+        environment["BUTTON_TITLE"] = button.title
+        environment["BUTTON_RUN_PROMPT"] = prompt
+        environment["BUTTON_WORKSPACE"] = automationWorkspace.workspaceURL(for: button).path
+        environment["BUTTON_SCRIPT_PATH"] = automationWorkspace.scriptURL(for: button).path
+        environment["BUTTON_SKILLS_DIRECTORY"] = automationWorkspace.skillsURL(for: button).path
+        environment["BUTTON_LOGS_DIRECTORY"] = automationWorkspace.logsURL(for: button).path
+        environment["BUTTON_AGENT_DIRECTORY"] = automationWorkspace.agentURL(for: button).path
         return environment
     }
 
     private func buttonContext(
         button: ActionButton,
         prompt: String,
-        values: [String: String],
-        configuration: AIConfiguration,
         scriptURL: URL,
-        workspaceURL: URL,
-        targetDirectory: String
+        workspaceURL: URL
     ) -> String {
-        let inputLines = values
-            .sorted { $0.key < $1.key }
-            .map { "- \($0.key): \($0.value)" }
-            .joined(separator: "\n")
-
-        return """
+        """
         Button: \(button.title)
         Button ID: \(button.id.uuidString)
+        Button slug: \(button.slug)
+        Category: \(button.category)
         Goal: \(button.taskDescription)
-        Workflow instruction:
-        \(prompt)
 
-        Inputs:
-        \(inputLines.isEmpty ? "- none" : inputLines)
+        Run prompt:
+        \(prompt)
 
         Reusable script path:
         \(scriptURL.path)
@@ -378,28 +328,24 @@ public final class WorkflowRunner {
         \(workspaceURL.path)
 
         Button skills directory:
-        \(automationWorkspace.skillsURL(for: button.id).path)
+        \(automationWorkspace.skillsURL(for: button).path)
 
         Button logs directory:
-        \(automationWorkspace.logsURL(for: button.id).path)
+        \(automationWorkspace.logsURL(for: button).path)
 
         Agent scratch directory:
-        \(automationWorkspace.agentURL(for: button.id).path)
+        \(automationWorkspace.agentURL(for: button).path)
 
-        Target directory:
-        \(targetDirectory)
-
-        Environment inputs:
-        \(environmentDocumentation(values: values))
-
-        Environment workspace variables:
+        Environment variables available to the script:
+        - BUTTON_ID
+        - BUTTON_SLUG
+        - BUTTON_TITLE
+        - BUTTON_RUN_PROMPT
         - BUTTON_WORKSPACE
         - BUTTON_SCRIPT_PATH
         - BUTTON_SKILLS_DIRECTORY
         - BUTTON_LOGS_DIRECTORY
         - BUTTON_AGENT_DIRECTORY
-        - BUTTON_TARGET_DIRECTORY
-        - BUTTON_WORKING_DIRECTORY
         """
     }
 
@@ -413,8 +359,7 @@ public final class WorkflowRunner {
         - Create or overwrite the script at the reusable script path.
         - The script must be zsh.
         - Treat the button workspace as the durable home for this button.
-        - Use the BUTTON_INPUT_* environment variables for run-time inputs.
-        - Use BUTTON_TARGET_DIRECTORY when the workflow needs to work against the user's selected directory or repository.
+        - Treat BUTTON_RUN_PROMPT as the only user-provided run input.
         - Use BUTTON_SKILLS_DIRECTORY for durable helper notes or button-specific reusable instructions.
         - Use BUTTON_AGENT_DIRECTORY for scratch files that help the local agent repair or improve the workflow.
         - Keep the script idempotent.
@@ -447,26 +392,6 @@ public final class WorkflowRunner {
         """
     }
 
-    private func environmentDocumentation(values: [String: String]) -> String {
-        if values.isEmpty {
-            return "- none"
-        }
-
-        return values.keys
-            .sorted()
-            .map { "- BUTTON_INPUT_\(environmentKey($0))" }
-            .joined(separator: "\n")
-    }
-
-    private func environmentKey(_ key: String) -> String {
-        let allowed = CharacterSet.alphanumerics
-        let scalars = key.unicodeScalars.map { scalar in
-            allowed.contains(scalar) ? Character(scalar).uppercased() : "_"
-        }
-        let joined = scalars.joined()
-        return joined.isEmpty ? "VALUE" : joined
-    }
-
     private func buttonAgentConfiguration(configuration: AIConfiguration, workspaceURL: URL) -> AIConfiguration {
         AIConfiguration(
             provider: configuration.provider,
@@ -476,25 +401,5 @@ public final class WorkflowRunner {
             workingDirectory: workspaceURL.path,
             thinkingLevel: configuration.thinkingLevel
         )
-    }
-
-    private func normalizedWorkingDirectory(_ path: String) -> String {
-        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmedPath.isEmpty else {
-            return AIConfiguration.defaultWorkingDirectory
-        }
-
-        if trimmedPath == "~" {
-            return FileManager.default.homeDirectoryForCurrentUser.path
-        }
-
-        if trimmedPath.hasPrefix("~/") {
-            return FileManager.default.homeDirectoryForCurrentUser
-                .appending(path: String(trimmedPath.dropFirst(2)))
-                .path
-        }
-
-        return trimmedPath
     }
 }

@@ -25,15 +25,7 @@ public struct AIConfiguration: Codable, Equatable, Sendable {
     }
 
     public static var defaultWorkingDirectory: String {
-        let fileManager = FileManager.default
-        let home = fileManager.homeDirectoryForCurrentUser
-        let companionCode = home.appending(path: "Companion/Code").path
-
-        if fileManager.fileExists(atPath: companionCode) {
-            return companionCode
-        }
-
-        return home.path
+        FileManager.default.homeDirectoryForCurrentUser.path
     }
 
     enum CodingKeys: String, CodingKey {

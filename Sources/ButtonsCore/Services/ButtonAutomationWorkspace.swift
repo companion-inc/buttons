@@ -18,70 +18,74 @@ public struct ButtonAutomationWorkspace: Sendable {
         )
     }
 
-    public func workspaceURL(for buttonID: UUID) -> URL {
-        rootURL.appending(path: buttonID.uuidString, directoryHint: .isDirectory)
+    public func workspaceURL(for button: ActionButton) -> URL {
+        workspaceURL(forSlug: button.slug)
     }
 
-    public func scriptsURL(for buttonID: UUID) -> URL {
-        workspaceURL(for: buttonID).appending(path: "scripts", directoryHint: .isDirectory)
+    public func workspaceURL(forSlug slug: String) -> URL {
+        rootURL.appending(path: ButtonWorkspaceSlug.make(from: slug), directoryHint: .isDirectory)
     }
 
-    public func scriptURL(for buttonID: UUID) -> URL {
-        scriptsURL(for: buttonID).appending(path: "run.zsh")
+    public func scriptsURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "scripts", directoryHint: .isDirectory)
     }
 
-    public func contextURL(for buttonID: UUID) -> URL {
-        workspaceURL(for: buttonID).appending(path: "button.md")
+    public func scriptURL(for button: ActionButton) -> URL {
+        scriptsURL(for: button).appending(path: "run.zsh")
     }
 
-    public func skillsURL(for buttonID: UUID) -> URL {
-        workspaceURL(for: buttonID).appending(path: "skills", directoryHint: .isDirectory)
+    public func contextURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "button.md")
     }
 
-    public func logsURL(for buttonID: UUID) -> URL {
-        workspaceURL(for: buttonID).appending(path: "logs", directoryHint: .isDirectory)
+    public func skillsURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "skills", directoryHint: .isDirectory)
     }
 
-    public func agentURL(for buttonID: UUID) -> URL {
-        workspaceURL(for: buttonID).appending(path: "agent", directoryHint: .isDirectory)
+    public func logsURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "logs", directoryHint: .isDirectory)
     }
 
-    public func ensureWorkspace(for buttonID: UUID) throws -> URL {
-        let workspaceURL = workspaceURL(for: buttonID)
-        try FileManager.default.createDirectory(at: scriptsURL(for: buttonID), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: skillsURL(for: buttonID), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: logsURL(for: buttonID), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: agentURL(for: buttonID), withIntermediateDirectories: true)
-        try writeSkillsReadmeIfNeeded(for: buttonID)
+    public func agentURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "agent", directoryHint: .isDirectory)
+    }
+
+    public func ensureWorkspace(for button: ActionButton) throws -> URL {
+        let workspaceURL = workspaceURL(for: button)
+        try FileManager.default.createDirectory(at: scriptsURL(for: button), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: skillsURL(for: button), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: logsURL(for: button), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: agentURL(for: button), withIntermediateDirectories: true)
+        try writeSkillsReadmeIfNeeded(for: button)
         return workspaceURL
     }
 
-    public func scriptExists(for buttonID: UUID) -> Bool {
-        FileManager.default.fileExists(atPath: scriptURL(for: buttonID).path)
+    public func scriptExists(for button: ActionButton) -> Bool {
+        FileManager.default.fileExists(atPath: scriptURL(for: button).path)
     }
 
-    public func readScript(for buttonID: UUID) -> String {
-        (try? String(contentsOf: scriptURL(for: buttonID), encoding: .utf8)) ?? ""
+    public func readScript(for button: ActionButton) -> String {
+        (try? String(contentsOf: scriptURL(for: button), encoding: .utf8)) ?? ""
     }
 
-    public func markScriptExecutable(for buttonID: UUID) {
+    public func markScriptExecutable(for button: ActionButton) {
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o755],
-            ofItemAtPath: scriptURL(for: buttonID).path
+            ofItemAtPath: scriptURL(for: button).path
         )
     }
 
-    public func writeContext(_ context: String, for buttonID: UUID) throws {
-        try context.write(to: contextURL(for: buttonID), atomically: true, encoding: .utf8)
+    public func writeContext(_ context: String, for button: ActionButton) throws {
+        try context.write(to: contextURL(for: button), atomically: true, encoding: .utf8)
     }
 
-    public func writeRunLog(_ receipt: ButtonRunReceipt) throws {
-        _ = try ensureWorkspace(for: receipt.buttonID)
+    public func writeRunLog(_ receipt: ButtonRunReceipt, for button: ActionButton) throws {
+        _ = try ensureWorkspace(for: button)
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let timestamp = formatter.string(from: receipt.startedAt)
             .replacingOccurrences(of: ":", with: "-")
-        let logURL = logsURL(for: receipt.buttonID)
+        let logURL = logsURL(for: button)
             .appending(path: "\(timestamp)-\(receipt.id.uuidString).md")
         let body = """
         # \(receipt.buttonTitle)
@@ -98,8 +102,8 @@ public struct ButtonAutomationWorkspace: Sendable {
         try body.write(to: logURL, atomically: true, encoding: .utf8)
     }
 
-    private func writeSkillsReadmeIfNeeded(for buttonID: UUID) throws {
-        let readmeURL = skillsURL(for: buttonID).appending(path: "README.md")
+    private func writeSkillsReadmeIfNeeded(for button: ActionButton) throws {
+        let readmeURL = skillsURL(for: button).appending(path: "README.md")
         guard !FileManager.default.fileExists(atPath: readmeURL.path) else {
             return
         }

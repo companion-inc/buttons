@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 struct ButtonDraft {
     var id: UUID
+    var slug: String
     var title: String
     var subtitle: String
     var category: String
@@ -16,23 +17,19 @@ struct ButtonDraft {
     var aiModel: String
     var aiSystemPrompt: String
     var aiExecutionMode: AIExecutionMode
-    var aiWorkingDirectory: String
     var aiThinkingLevel: AgentThinkingLevel
     var approvalPolicy: ApprovalPolicy
-    var inputKey: String
-    var inputLabel: String
-    var inputDefault: String
     var permissionTitle: String
     var permissionDetail: String
     var createdAt: Date
 
     init(button: ActionButton) {
-        let input = button.workflow.inputs.first
         let step = button.workflow.steps.first
         let permission = button.permissions.first
         let aiConfiguration = step?.aiConfiguration
 
         id = button.id
+        slug = button.slug
         title = button.title
         subtitle = button.subtitle
         category = button.category
@@ -45,32 +42,14 @@ struct ButtonDraft {
         aiModel = aiConfiguration?.model ?? ""
         aiSystemPrompt = aiConfiguration?.systemPrompt ?? ""
         aiExecutionMode = aiConfiguration?.executionMode ?? .workspaceWrite
-        aiWorkingDirectory = aiConfiguration?.workingDirectory ?? AIConfiguration.defaultWorkingDirectory
         aiThinkingLevel = aiConfiguration?.thinkingLevel ?? .high
         approvalPolicy = button.approvalPolicy
-        inputKey = input?.key ?? ""
-        inputLabel = input?.label ?? ""
-        inputDefault = input?.defaultValue ?? ""
         permissionTitle = permission?.title ?? ""
         permissionDetail = permission?.detail ?? ""
         createdAt = button.createdAt
     }
 
     var button: ActionButton {
-        let trimmedInputKey = inputKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        let inputs: [ButtonInputField]
-        if trimmedInputKey.isEmpty {
-            inputs = []
-        } else {
-            inputs = [
-                ButtonInputField(
-                    key: trimmedInputKey,
-                    label: inputLabel.isEmpty ? trimmedInputKey : inputLabel,
-                    defaultValue: inputDefault
-                ),
-            ]
-        }
-
         let trimmedPermission = permissionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let permissions: [ButtonPermission]
         if trimmedPermission.isEmpty {
@@ -81,13 +60,13 @@ struct ButtonDraft {
 
         return ActionButton(
             id: id,
+            slug: slug,
             title: title,
             subtitle: subtitle,
             category: trimmedCategory,
             taskDescription: taskDescription,
             face: ButtonFace(symbolName: symbolName, color: color, surface: surface),
             workflow: ButtonWorkflow(
-                inputs: inputs,
                 steps: [
                     WorkflowStep(
                         title: "Workflow",
@@ -110,9 +89,6 @@ struct ButtonDraft {
             model: aiModel.trimmingCharacters(in: .whitespacesAndNewlines),
             systemPrompt: aiSystemPrompt,
             executionMode: aiExecutionMode,
-            workingDirectory: aiWorkingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? AIConfiguration.defaultWorkingDirectory
-                : aiWorkingDirectory,
             thinkingLevel: aiThinkingLevel
         )
     }

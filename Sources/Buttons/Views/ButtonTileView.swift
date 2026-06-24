@@ -48,7 +48,7 @@ struct ButtonTileView: View {
                         HStack(spacing: 8) {
                             categoryBadge
                             AgentBadgeView(provider: provider)
-                            ScriptStatusBadgeView(buttonID: button.id)
+                            ScriptStatusBadgeView(button: button)
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -56,7 +56,7 @@ struct ButtonTileView: View {
                                 categoryBadge
                                 AgentBadgeView(provider: provider)
                             }
-                            ScriptStatusBadgeView(buttonID: button.id)
+                            ScriptStatusBadgeView(button: button)
                         }
                     }
                 }
@@ -70,6 +70,25 @@ struct ButtonTileView: View {
                     .strokeBorder(isSelected ? Color.black.opacity(0.42) : Color.clear, lineWidth: 3)
                     .padding(-2)
             )
+
+            Button("Run", systemImage: "play.fill") {
+                runAction(button)
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .font(.title3.bold())
+            .foregroundStyle(button.face.color.swiftUIForegroundColor)
+            .frame(width: 52, height: 52)
+            .background(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.36 : 0.24))
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .strokeBorder(.white.opacity(0.24), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.10), radius: 8, y: 4)
+            .padding(18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .accessibilityLabel("Run \(button.title)")
 
             Button("Settings", systemImage: "gearshape.fill") {
                 editAction(button)
