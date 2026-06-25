@@ -16,52 +16,59 @@ struct ButtonTileView: View {
             Button {
                 runAction(button)
             } label: {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Image(systemName: button.face.symbolName)
-                            .font(.title2)
-                            .symbolRenderingMode(.hierarchical)
-                            .frame(width: 44, height: 44)
-                            .background(iconBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .accessibilityHidden(true)
+                ZStack(alignment: .bottomTrailing) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Image(systemName: button.face.symbolName)
+                                .font(.title2)
+                                .symbolRenderingMode(.hierarchical)
+                                .frame(width: 44, height: 44)
+                                .background(iconBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .accessibilityHidden(true)
 
-                        Spacer()
-                    }
+                            Spacer()
 
-                    Spacer(minLength: 8)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(button.title)
-                            .font(.title3)
-                            .bold()
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-
-                        Text(button.subtitle)
-                            .font(.callout)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 8) {
-                            categoryBadge
-                            AgentBadgeView(provider: provider)
-                            ScriptStatusBadgeView(button: button)
+                            ButtonTileControlMark(systemName: "gearshape.fill", face: button.face, size: 38)
                         }
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        Spacer(minLength: 8)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(button.title)
+                                .font(.title3)
+                                .bold()
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+
+                            Text(button.subtitle)
+                                .font(.callout)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        ViewThatFits(in: .horizontal) {
                             HStack(spacing: 8) {
                                 categoryBadge
                                 AgentBadgeView(provider: provider)
+                                AutomationStatusBadgeView(button: button)
                             }
-                            ScriptStatusBadgeView(button: button)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    categoryBadge
+                                    AgentBadgeView(provider: provider)
+                                }
+                                AutomationStatusBadgeView(button: button)
+                            }
                         }
                     }
+                    .padding(22)
+                    .frame(maxWidth: .infinity, minHeight: 196, alignment: .leading)
+
+                    ButtonTileControlMark(systemName: "play.fill", face: button.face, size: 52, font: .title3)
+                        .padding(18)
                 }
-                .padding(22)
-                .frame(maxWidth: .infinity, minHeight: 196, alignment: .leading)
                 .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             }
             .buttonStyle(PhysicalButtonTileStyle(face: button.face))
@@ -71,36 +78,15 @@ struct ButtonTileView: View {
                     .padding(-2)
             )
 
-            Button("Run", systemImage: "play.fill") {
-                runAction(button)
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.plain)
-            .font(.title3.bold())
-            .foregroundStyle(button.face.color.swiftUIForegroundColor)
-            .frame(width: 52, height: 52)
-            .background(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.36 : 0.24))
-            .clipShape(Circle())
-            .overlay(
-                Circle()
-                    .strokeBorder(.white.opacity(0.24), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.10), radius: 8, y: 4)
-            .padding(18)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .accessibilityLabel("Run \(button.title)")
-
-            Button("Settings", systemImage: "gearshape.fill") {
+            Button {
                 editAction(button)
+            } label: {
+                Color.clear
+                    .frame(width: 52, height: 52)
+                    .contentShape(Circle())
             }
-            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .font(.headline)
-            .foregroundStyle(button.face.color.swiftUIForegroundColor)
-            .frame(width: 38, height: 38)
-            .background(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.34 : 0.22))
-            .clipShape(Circle())
-            .padding(18)
+            .padding(11)
             .accessibilityLabel("Settings")
         }
         .contextMenu {

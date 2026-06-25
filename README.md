@@ -8,15 +8,15 @@ Buttons does not store OpenAI or Anthropic API keys. It runs the locally install
 
 Buttons keeps its runtime state in `~/.buttons`. Each button gets its own editable slug workspace at `~/.buttons/buttons/<slug>/` with:
 
-- `scripts/run.zsh` for the self-healing reusable workflow.
+- `automation/` for internal acceleration artifacts the agent may maintain.
 - `button.md` for the current button instructions and latest run prompt.
 - `skills/` for button-specific reusable notes and helper instructions.
 - `logs/` for per-run logs.
 - `agent/` for agent scratch files.
 
-On first run, a button asks the selected local agent to extract the repetitive workflow into its own reusable script. Later clicks run that script first so the button gets cheaper. If the script breaks, Buttons sends the failure and current script back to the agent, repairs it in place, and retries once.
+Every click runs the selected local agent. The agent completes the task, reads the button workspace, and updates durable memory or automation so later clicks get cheaper. Buttons never turns a button into manual setup; the optimization layer belongs to the agent.
 
-Clicking a button face runs it. The play mark inside the face is the run affordance, and the gear opens the button's internals. Buttons with no reusable script yet, buttons set to always confirm, and risky buttons open an armed run screen first. Cached safe buttons zoom into live run state and start immediately.
+Clicking a button face runs it. The play mark inside the face is the run affordance, and the gear opens the button's internals. Buttons with no optimization memory yet, buttons set to always confirm, and risky buttons open an armed run screen first. Optimized safe buttons zoom into live run state and start immediately. While a run is active, another click does not start a duplicate; the live run exposes Stop and saves a stopped receipt when canceled.
 
 ## Build
 
@@ -36,8 +36,8 @@ open .build/debug/Buttons.app
 - Permission mode
 - One saved run prompt per button; first or risky runs let the user review or edit that prompt before launch.
 - Per-button workspace under `~/.buttons/buttons/<slug>/`
-- Per-button reusable script, skills folder, and logs
-- `BUTTON_RUN_PROMPT` is the only user-provided run input exposed to generated scripts.
+- Per-button optimization memory, skills folder, and logs
+- The saved run prompt is the only user-provided run input for a button click.
 
 Dangerous agent buttons require approval by default.
 

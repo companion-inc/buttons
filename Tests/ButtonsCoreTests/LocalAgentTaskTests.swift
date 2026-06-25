@@ -67,6 +67,7 @@ struct LocalAgentTaskTests {
         )
 
         #expect(arguments.contains("exec"))
+        #expect(!arguments.contains("--ask-for-approval"))
         #expect(arguments.contains("--dangerously-bypass-approvals-and-sandbox"))
         #expect(arguments.contains("danger-full-access"))
         #expect(arguments.contains("/tmp/project"))

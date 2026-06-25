@@ -12,6 +12,7 @@ struct ButtonWorkflowColumnView: View {
     @State private var draft: ButtonDraft
     @State private var latestReceipt: ButtonRunReceipt?
     @State private var isRunning = false
+    @State private var runTask: Task<Void, Never>?
     @State private var showAdvanced = false
 
     init(
@@ -72,7 +73,7 @@ struct ButtonWorkflowColumnView: View {
                         .clipShape(Capsule())
 
                     AgentBadgeView(provider: draft.aiProvider)
-                    ScriptStatusBadgeView(button: draft.button)
+                    AutomationStatusBadgeView(button: draft.button)
                 }
             }
 
@@ -85,6 +86,8 @@ struct ButtonWorkflowColumnView: View {
                 .padding(10)
                 .background(.black.opacity(0.06))
                 .clipShape(Circle())
+                .disabled(isRunning)
+                .opacity(isRunning ? 0.42 : 1)
         }
     }
 
@@ -191,9 +194,8 @@ struct ButtonWorkflowColumnView: View {
                 }
                 .buttonStyle(ChromePillButtonStyle(tint: .red.opacity(0.82)))
 
-                Button(isRunning ? "Running..." : "Run", systemImage: "play.fill", action: run)
-                    .buttonStyle(AgentLaunchButtonStyle(color: draft.color.swiftUIColor))
-                    .disabled(isRunning)
+                Button(isRunning ? "Stop" : "Run", systemImage: isRunning ? "stop.fill" : "play.fill", action: run)
+                    .buttonStyle(AgentLaunchButtonStyle(color: isRunning ? .red : draft.color.swiftUIColor))
             }
         }
     }
@@ -228,8 +230,13 @@ struct ButtonWorkflowColumnView: View {
     }
 
     private func run() {
+        if isRunning {
+            runTask?.cancel()
+            return
+        }
+
         isRunning = true
-        Task {
+        runTask = Task {
             let currentButton = draft.button
             await upsert(currentButton)
             let receipt = await library.run(
@@ -239,6 +246,7 @@ struct ButtonWorkflowColumnView: View {
             )
             latestReceipt = receipt
             isRunning = false
+            runTask = nil
         }
     }
 

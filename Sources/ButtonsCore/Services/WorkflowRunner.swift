@@ -5,18 +5,15 @@ import Foundation
 public final class WorkflowRunner {
     private let shell: ShellCommandExecutor
     private let localAgents: LocalAgentRunner
-    private let commandLine: CommandLineExecutor
     private let automationWorkspace: ButtonAutomationWorkspace
 
     public init(
         shell: ShellCommandExecutor = ShellCommandExecutor(),
         localAgents: LocalAgentRunner = LocalAgentRunner(),
-        commandLine: CommandLineExecutor = CommandLineExecutor(),
         automationWorkspace: ButtonAutomationWorkspace = .production()
     ) {
         self.shell = shell
         self.localAgents = localAgents
-        self.commandLine = commandLine
         self.automationWorkspace = automationWorkspace
     }
 
@@ -49,6 +46,18 @@ public final class WorkflowRunner {
                 status: .succeeded,
                 summary: "\(button.title) finished.",
                 output: outputs.joined(separator: "\n")
+            )
+            try? automationWorkspace.writeRunLog(receipt, for: button)
+            return receipt
+        } catch is CancellationError {
+            let receipt = ButtonRunReceipt(
+                buttonID: button.id,
+                buttonTitle: button.title,
+                startedAt: startedAt,
+                finishedAt: Date(),
+                status: .canceled,
+                summary: "\(button.title) stopped.",
+                output: "Stopped by user."
             )
             try? automationWorkspace.writeRunLog(receipt, for: button)
             return receipt
@@ -123,7 +132,6 @@ public final class WorkflowRunner {
         }
 
         let workspaceURL = try automationWorkspace.ensureWorkspace(for: button)
-        let scriptURL = automationWorkspace.scriptURL(for: button)
         let agentConfiguration = buttonAgentConfiguration(
             configuration: configuration,
             workspaceURL: workspaceURL
@@ -131,184 +139,30 @@ public final class WorkflowRunner {
         let context = buttonContext(
             button: button,
             prompt: prompt,
-            scriptURL: scriptURL,
             workspaceURL: workspaceURL
         )
         try automationWorkspace.writeContext(context, for: button)
 
-        if automationWorkspace.scriptExists(for: button) {
-            let firstRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
-
-            if firstRun.succeeded {
-                return """
-                Ran cached workflow script.
-                Workspace: \(workspaceURL.path)
-                Script: \(scriptURL.path)
-
-                \(firstRun.combinedOutput)
-                """
-            }
-
-            let repairOutput = try await localAgents.run(
-                configuration: agentConfiguration,
-                prompt: repairPrompt(
-                    context: context,
-                    script: automationWorkspace.readScript(for: button),
-                    failure: firstRun.combinedOutput
-                )
-            )
-            automationWorkspace.markScriptExecutable(for: button)
-
-            let repairedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
-
-            guard repairedRun.succeeded else {
-                throw WorkflowRunError.commandFailed(
-                    """
-                    Cached script failed, agent attempted repair, and the repaired script still failed.
-                    Workspace: \(workspaceURL.path)
-                    Script: \(scriptURL.path)
-
-                    Initial failure:
-                    \(firstRun.combinedOutput)
-
-                    Agent repair log:
-                    \(repairOutput)
-
-                    Repaired script failure:
-                    \(repairedRun.combinedOutput)
-                    """
-                )
-            }
-
-            return """
-            Self-healed workflow script and ran it.
-            Workspace: \(workspaceURL.path)
-            Script: \(scriptURL.path)
-
-            Script output:
-            \(repairedRun.combinedOutput)
-
-            Repair log:
-            \(repairOutput)
-            """
-        }
-
-        let buildOutput = try await localAgents.run(
+        let agentOutput = try await localAgents.run(
             configuration: agentConfiguration,
-            prompt: buildScriptPrompt(context: context)
-        )
-        automationWorkspace.markScriptExecutable(for: button)
-
-        guard automationWorkspace.scriptExists(for: button) else {
-            throw WorkflowRunError.commandFailed(
-                """
-                Agent did not create the reusable workflow script.
-                Expected script: \(scriptURL.path)
-
-                Agent output:
-                \(buildOutput)
-                """
-            )
-        }
-
-        let generatedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
-
-        if generatedRun.succeeded {
-            return """
-            Extracted workflow into a reusable script and ran it.
-            Workspace: \(workspaceURL.path)
-            Script: \(scriptURL.path)
-
-            Script output:
-            \(generatedRun.combinedOutput)
-
-            Agent build log:
-            \(buildOutput)
-            """
-        }
-
-        let repairOutput = try await localAgents.run(
-            configuration: agentConfiguration,
-            prompt: repairPrompt(
+            prompt: agentRunPrompt(
                 context: context,
-                script: automationWorkspace.readScript(for: button),
-                failure: generatedRun.combinedOutput
+                existingAutomation: automationWorkspace.readAutomation(for: button)
             )
         )
-        automationWorkspace.markScriptExecutable(for: button)
-
-        let repairedRun = try await runCachedScript(button: button, prompt: prompt, workspaceURL: workspaceURL)
-
-        guard repairedRun.succeeded else {
-            throw WorkflowRunError.commandFailed(
-                """
-                Agent created a script, attempted one repair, and the script still failed.
-                Workspace: \(workspaceURL.path)
-                Script: \(scriptURL.path)
-
-                Build log:
-                \(buildOutput)
-
-                First script failure:
-                \(generatedRun.combinedOutput)
-
-                Repair log:
-                \(repairOutput)
-
-                Repaired script failure:
-                \(repairedRun.combinedOutput)
-                """
-            )
-        }
+        automationWorkspace.markAutomationExecutable(for: button)
 
         return """
-        Extracted and self-healed workflow script.
+        Agent ran this button and updated its optimization memory.
         Workspace: \(workspaceURL.path)
-        Script: \(scriptURL.path)
 
-        Script output:
-        \(repairedRun.combinedOutput)
-
-        Build log:
-        \(buildOutput)
-
-        Repair log:
-        \(repairOutput)
+        \(agentOutput)
         """
-    }
-
-    private func runCachedScript(
-        button: ActionButton,
-        prompt: String,
-        workspaceURL: URL
-    ) async throws -> CommandLineResult {
-        automationWorkspace.markScriptExecutable(for: button)
-        return try await commandLine.run(
-            executableURL: URL(filePath: "/bin/zsh"),
-            arguments: [automationWorkspace.scriptURL(for: button).path],
-            currentDirectoryURL: workspaceURL,
-            environment: scriptEnvironment(button: button, prompt: prompt)
-        )
-    }
-
-    private func scriptEnvironment(button: ActionButton, prompt: String) -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        environment["BUTTON_ID"] = button.id.uuidString
-        environment["BUTTON_SLUG"] = button.slug
-        environment["BUTTON_TITLE"] = button.title
-        environment["BUTTON_RUN_PROMPT"] = prompt
-        environment["BUTTON_WORKSPACE"] = automationWorkspace.workspaceURL(for: button).path
-        environment["BUTTON_SCRIPT_PATH"] = automationWorkspace.scriptURL(for: button).path
-        environment["BUTTON_SKILLS_DIRECTORY"] = automationWorkspace.skillsURL(for: button).path
-        environment["BUTTON_LOGS_DIRECTORY"] = automationWorkspace.logsURL(for: button).path
-        environment["BUTTON_AGENT_DIRECTORY"] = automationWorkspace.agentURL(for: button).path
-        return environment
     }
 
     private func buttonContext(
         button: ActionButton,
         prompt: String,
-        scriptURL: URL,
         workspaceURL: URL
     ) -> String {
         """
@@ -321,11 +175,11 @@ public final class WorkflowRunner {
         Run prompt:
         \(prompt)
 
-        Reusable script path:
-        \(scriptURL.path)
-
         Button workspace:
         \(workspaceURL.path)
+
+        Optimization runner path:
+        \(automationWorkspace.runnerURL(for: button).path)
 
         Button skills directory:
         \(automationWorkspace.skillsURL(for: button).path)
@@ -336,59 +190,46 @@ public final class WorkflowRunner {
         Agent scratch directory:
         \(automationWorkspace.agentURL(for: button).path)
 
-        Environment variables available to the script:
+        Values the agent should treat as the button environment:
         - BUTTON_ID
         - BUTTON_SLUG
         - BUTTON_TITLE
         - BUTTON_RUN_PROMPT
         - BUTTON_WORKSPACE
-        - BUTTON_SCRIPT_PATH
+        - BUTTON_AUTOMATION_PATH
         - BUTTON_SKILLS_DIRECTORY
         - BUTTON_LOGS_DIRECTORY
         - BUTTON_AGENT_DIRECTORY
         """
     }
 
-    private func buildScriptPrompt(context: String) -> String {
+    private func agentRunPrompt(context: String, existingAutomation: String) -> String {
         """
-        You are running a Buttons self-healing workflow.
+        You are running a Buttons button.
 
-        The button must become cheaper each time it is clicked. Extract this repetitive workflow into a reusable zsh script at the exact path below, then make it executable.
+        Complete the button's run now. Every click belongs to the local AI agent. The button workspace is durable memory that should make later clicks cheaper, faster, or more reliable.
 
         Requirements:
-        - Create or overwrite the script at the reusable script path.
-        - The script must be zsh.
-        - Treat the button workspace as the durable home for this button.
-        - Treat BUTTON_RUN_PROMPT as the only user-provided run input.
-        - Use BUTTON_SKILLS_DIRECTORY for durable helper notes or button-specific reusable instructions.
-        - Use BUTTON_AGENT_DIRECTORY for scratch files that help the local agent repair or improve the workflow.
-        - Keep the script idempotent.
-        - Do not require interactive input.
-        - Print useful logs to stdout.
+        - Execute the run prompt end to end before reporting back.
+        - Treat the run prompt as the only user-provided input for this click.
+        - Read and update the button workspace when it helps future runs.
+        - Use the optimization runner path only as an internal acceleration artifact.
+        - Use the skills directory for durable notes, procedures, and button-specific reusable instructions.
+        - Use the agent scratch directory for temporary repair or improvement work.
+        - Reuse existing automation when it is correct, repair it when it is broken, and replace it when the task has changed.
+        - Keep anything reusable idempotent and non-interactive.
+        - Print useful logs.
         - Do not hardcode secrets.
-        - After writing the script, do not stop at an explanation.
-
-        \(context)
-        """
-    }
-
-    private func repairPrompt(context: String, script: String, failure: String) -> String {
-        """
-        This Buttons workflow has a cached reusable script, but it failed. Repair the script in place, preserve the original button goal, and make it executable again.
+        - Do not stop at planning or at writing files; finish the actual task.
+        - End with what happened and what the button learned for next time.
+        - In the final user-facing result, call durable artifacts automation, runners, notes, or memory. Do not describe them as scripts.
 
         \(context)
 
-        Current script:
-        ```zsh
-        \(script)
+        Existing optimization:
+        ```text
+        \(existingAutomation.isEmpty ? "None yet." : existingAutomation)
         ```
-
-        Failure output:
-        ```
-        \(failure)
-        ```
-
-        Fix the reusable script at the exact script path. Do not create a second script.
         """
     }
 

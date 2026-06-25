@@ -7,8 +7,8 @@ struct RunHistoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label(receipt.status == .succeeded ? "Succeeded" : "Failed", systemImage: receipt.status == .succeeded ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                    .foregroundStyle(receipt.status == .succeeded ? .green : .red)
+                Label(statusTitle, systemImage: statusSymbol)
+                    .foregroundStyle(statusColor)
                     .font(.headline)
 
                 Spacer()
@@ -41,5 +41,38 @@ struct RunHistoryRow: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(.white.opacity(0.7), lineWidth: 1)
         )
+    }
+
+    private var statusTitle: String {
+        switch receipt.status {
+        case .succeeded:
+            "Succeeded"
+        case .failed:
+            "Failed"
+        case .canceled:
+            "Stopped"
+        }
+    }
+
+    private var statusSymbol: String {
+        switch receipt.status {
+        case .succeeded:
+            "checkmark.circle.fill"
+        case .failed:
+            "xmark.octagon.fill"
+        case .canceled:
+            "stop.circle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        switch receipt.status {
+        case .succeeded:
+            .green
+        case .failed:
+            .red
+        case .canceled:
+            .secondary
+        }
     }
 }

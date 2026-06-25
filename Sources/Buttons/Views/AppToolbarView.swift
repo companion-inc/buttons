@@ -6,11 +6,6 @@ struct AppToolbarView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Text("Buttons")
-                .font(.largeTitle)
-                .bold()
-                .foregroundStyle(.primary)
-
             Spacer()
 
             Button("Import", systemImage: "square.and.arrow.down", action: importAction)

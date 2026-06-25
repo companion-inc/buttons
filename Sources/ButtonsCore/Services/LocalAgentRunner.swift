@@ -94,15 +94,13 @@ public actor LocalAgentRunner {
 
         switch configuration.executionMode {
         case .replyOnly:
-            arguments.append(contentsOf: ["--sandbox", "read-only", "--ask-for-approval", "never"])
+            arguments.append(contentsOf: ["--sandbox", "read-only"])
         case .workspaceWrite:
-            arguments.append(contentsOf: ["--sandbox", "workspace-write", "--ask-for-approval", "never"])
+            arguments.append(contentsOf: ["--sandbox", "workspace-write"])
         case .dangerouslyRun:
             arguments.append(contentsOf: [
                 "--sandbox",
                 "danger-full-access",
-                "--ask-for-approval",
-                "never",
                 "--dangerously-bypass-approvals-and-sandbox",
             ])
         }

@@ -26,12 +26,12 @@ public struct ButtonAutomationWorkspace: Sendable {
         rootURL.appending(path: ButtonWorkspaceSlug.make(from: slug), directoryHint: .isDirectory)
     }
 
-    public func scriptsURL(for button: ActionButton) -> URL {
-        workspaceURL(for: button).appending(path: "scripts", directoryHint: .isDirectory)
+    public func automationURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "automation", directoryHint: .isDirectory)
     }
 
-    public func scriptURL(for button: ActionButton) -> URL {
-        scriptsURL(for: button).appending(path: "run.zsh")
+    public func runnerURL(for button: ActionButton) -> URL {
+        automationURL(for: button).appending(path: "run.zsh")
     }
 
     public func contextURL(for button: ActionButton) -> URL {
@@ -52,7 +52,7 @@ public struct ButtonAutomationWorkspace: Sendable {
 
     public func ensureWorkspace(for button: ActionButton) throws -> URL {
         let workspaceURL = workspaceURL(for: button)
-        try FileManager.default.createDirectory(at: scriptsURL(for: button), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: automationURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: skillsURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: logsURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: agentURL(for: button), withIntermediateDirectories: true)
@@ -60,19 +60,26 @@ public struct ButtonAutomationWorkspace: Sendable {
         return workspaceURL
     }
 
-    public func scriptExists(for button: ActionButton) -> Bool {
-        FileManager.default.fileExists(atPath: scriptURL(for: button).path)
+    public func automationExists(for button: ActionButton) -> Bool {
+        FileManager.default.fileExists(atPath: runnerURL(for: button).path)
+            || FileManager.default.fileExists(atPath: legacyRunnerURL(for: button).path)
     }
 
-    public func readScript(for button: ActionButton) -> String {
-        (try? String(contentsOf: scriptURL(for: button), encoding: .utf8)) ?? ""
+    public func readAutomation(for button: ActionButton) -> String {
+        if let current = try? String(contentsOf: runnerURL(for: button), encoding: .utf8) {
+            return current
+        }
+
+        return (try? String(contentsOf: legacyRunnerURL(for: button), encoding: .utf8)) ?? ""
     }
 
-    public func markScriptExecutable(for button: ActionButton) {
-        try? FileManager.default.setAttributes(
-            [.posixPermissions: 0o755],
-            ofItemAtPath: scriptURL(for: button).path
-        )
+    public func markAutomationExecutable(for button: ActionButton) {
+        for url in [runnerURL(for: button), legacyRunnerURL(for: button)] where FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: url.path
+            )
+        }
     }
 
     public func writeContext(_ context: String, for button: ActionButton) throws {
@@ -112,8 +119,14 @@ public struct ButtonAutomationWorkspace: Sendable {
         # Button Skills
 
         Put reusable notes, procedures, and helper instructions for this button here.
-        The self-healing agent can read and update this folder when a workflow gets cheaper or more reliable.
+        The self-healing agent can read and update this folder when a button gets cheaper or more reliable.
         """
         try body.write(to: readmeURL, atomically: true, encoding: .utf8)
+    }
+
+    private func legacyRunnerURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button)
+            .appending(path: "scripts", directoryHint: .isDirectory)
+            .appending(path: "run.zsh")
     }
 }

@@ -26,9 +26,9 @@ struct WorkflowRunnerTests {
         #expect(receipt.output == "Hello Buttons")
     }
 
-    @Test("Button workflow runs cached workflow script when present")
+    @Test("Button workspace tracks optimization memory")
     @MainActor
-    func promptButtonRunsCachedWorkflowScriptWhenPresent() async throws {
+    func buttonWorkspaceTracksOptimizationMemory() async throws {
         let buttonID = UUID()
         let rootURL = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -39,7 +39,7 @@ struct WorkflowRunnerTests {
             title: "Cached",
             subtitle: "Workflow",
             category: "Automation",
-            taskDescription: "Run cached script.",
+            taskDescription: "Run a saved workflow.",
             face: ButtonFace(),
             workflow: ButtonWorkflow(
                 steps: [
@@ -52,30 +52,19 @@ struct WorkflowRunnerTests {
                 ]
             )
         )
-        let buttonWorkspaceURL = try workspace.ensureWorkspace(for: button)
-        let scriptURL = workspace.scriptURL(for: button)
-        let script = """
+
+        _ = try workspace.ensureWorkspace(for: button)
+        let runnerURL = workspace.runnerURL(for: button)
+        let runner = """
         #!/bin/zsh
-        echo "prompt:$BUTTON_RUN_PROMPT"
-        echo "workspace:$PWD"
-        echo "slug:$BUTTON_SLUG"
-        echo "skills:$BUTTON_SKILLS_DIRECTORY"
+        echo "optimized"
         """
-        try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+        try runner.write(to: runnerURL, atomically: true, encoding: .utf8)
+        workspace.markAutomationExecutable(for: button)
 
-        let runner = WorkflowRunner(automationWorkspace: workspace)
-
-        let receipt = await runner.run(button: button, prompt: "script prompt")
-        let shellWorkspacePath = buttonWorkspaceURL.path.hasPrefix("/var/")
-            ? "/private\(buttonWorkspaceURL.path)"
-            : buttonWorkspaceURL.path
-
-        #expect(receipt.status == .succeeded)
-        #expect(receipt.output.contains("Ran cached workflow script."))
-        #expect(receipt.output.contains("prompt:script prompt"))
-        #expect(receipt.output.contains("workspace:\(shellWorkspacePath)"))
-        #expect(receipt.output.contains("slug:cached-workflow"))
-        #expect(receipt.output.contains("skills:\(workspace.skillsURL(for: button).path)"))
+        #expect(workspace.automationExists(for: button))
+        #expect(workspace.readAutomation(for: button).contains("optimized"))
+        #expect(FileManager.default.isExecutableFile(atPath: runnerURL.path))
         #expect(FileManager.default.fileExists(atPath: workspace.logsURL(for: button).path))
     }
 }

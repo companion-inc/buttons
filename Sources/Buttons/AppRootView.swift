@@ -11,6 +11,7 @@ struct AppRootView: View {
     @State private var pendingRunButton: ActionButton?
     @State private var pendingRunReceipt: ButtonRunReceipt?
     @State private var isPendingRunRunning = false
+    @State private var pendingRunTask: Task<Void, Never>?
     @Namespace private var buttonZoomNamespace
 
     var body: some View {
@@ -127,6 +128,8 @@ struct AppRootView: View {
             pendingRunButton = nil
             pendingRunReceipt = nil
             isPendingRunRunning = false
+            pendingRunTask?.cancel()
+            pendingRunTask = nil
             if detailSelection?.buttonID == button.id {
                 detailSelection = nil
             } else {
@@ -157,6 +160,10 @@ struct AppRootView: View {
     }
 
     private func requestRun(_ button: ActionButton) {
+        guard !isPendingRunRunning else {
+            return
+        }
+
         withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
             detailSelection = nil
             pendingRunButton = button
@@ -168,12 +175,10 @@ struct AppRootView: View {
             return
         }
 
-        Task {
-            await startPendingRun(
-                button: button,
-                prompt: defaultPrompt(for: button)
-            )
-        }
+        startPendingRun(
+            button: button,
+            prompt: defaultPrompt(for: button)
+        )
     }
 
     private func confirmPendingRun(prompt: String) {
@@ -181,16 +186,15 @@ struct AppRootView: View {
             return
         }
 
-        Task {
-            await startPendingRun(
-                button: button,
-                prompt: prompt
-            )
-        }
+        startPendingRun(
+            button: button,
+            prompt: prompt
+        )
     }
 
     private func cancelPendingRun() {
-        guard !isPendingRunRunning else {
+        if isPendingRunRunning {
+            pendingRunTask?.cancel()
             return
         }
 
@@ -198,22 +202,26 @@ struct AppRootView: View {
             pendingRunButton = nil
             pendingRunReceipt = nil
             isPendingRunRunning = false
+            pendingRunTask = nil
         }
     }
 
     private func startPendingRun(
         button: ActionButton,
         prompt: String
-    ) async {
-        guard !isPendingRunRunning else {
+    ) {
+        guard pendingRunTask == nil else {
             return
         }
 
         isPendingRunRunning = true
         pendingRunReceipt = nil
-        let receipt = await runNow(button, prompt: prompt)
-        pendingRunReceipt = receipt
-        isPendingRunRunning = false
+        pendingRunTask = Task {
+            let receipt = await runNow(button, prompt: prompt)
+            pendingRunReceipt = receipt
+            isPendingRunRunning = false
+            pendingRunTask = nil
+        }
     }
 
     @discardableResult
@@ -231,7 +239,7 @@ struct AppRootView: View {
     }
 
     private func shouldStartImmediately(_ button: ActionButton) -> Bool {
-        !button.requiresRunConfirmation && ButtonAutomationWorkspace.production().scriptExists(for: button)
+        !button.requiresRunConfirmation && ButtonAutomationWorkspace.production().automationExists(for: button)
     }
 
     private func delete(_ button: ActionButton) {
@@ -243,6 +251,8 @@ struct AppRootView: View {
                 }
             }
             if pendingRunButton?.id == button.id {
+                pendingRunTask?.cancel()
+                pendingRunTask = nil
                 pendingRunButton = nil
                 pendingRunReceipt = nil
                 isPendingRunRunning = false

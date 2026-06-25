@@ -86,9 +86,8 @@ struct RunConfirmationView: View {
                 }
 
                 workspaceCard(title: "Workspace", detail: workspacePath)
-                workspaceCard(title: "Script", detail: scriptPath)
 
-                Text("Buttons is building, running, or repairing this button's reusable script.")
+                Text("The agent is completing this click and updating the button's memory for next time.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -107,16 +106,14 @@ struct RunConfirmationView: View {
 
     private var controls: some View {
         HStack(spacing: 12) {
-            Button(receipt == nil ? "Cancel" : "Done", systemImage: receipt == nil ? "xmark" : "checkmark", action: cancelAction)
-                .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.46)))
-                .disabled(isRunning)
+            Button(leftControlTitle, systemImage: leftControlSymbol, action: cancelAction)
+                .buttonStyle(ChromePillButtonStyle(tint: isRunning ? .red.opacity(0.82) : .black.opacity(0.46)))
 
             Spacer()
 
-            if receipt == nil {
-                Button(isRunning ? "Running..." : "Run", systemImage: "play.fill", action: run)
+            if receipt == nil, !isRunning {
+                Button("Run", systemImage: "play.fill", action: run)
                     .buttonStyle(AgentLaunchButtonStyle(color: button.face.color.swiftUIColor))
-                    .disabled(isRunning)
             }
         }
     }
@@ -178,8 +175,20 @@ struct RunConfirmationView: View {
         ButtonAutomationWorkspace.production().workspaceURL(for: button).path
     }
 
-    private var scriptPath: String {
-        ButtonAutomationWorkspace.production().scriptURL(for: button).path
+    private var leftControlTitle: String {
+        if isRunning {
+            return "Stop"
+        }
+
+        return receipt == nil ? "Cancel" : "Done"
+    }
+
+    private var leftControlSymbol: String {
+        if isRunning {
+            return "stop.fill"
+        }
+
+        return receipt == nil ? "xmark" : "checkmark"
     }
 
     private var screenBackground: some ShapeStyle {

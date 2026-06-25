@@ -1,30 +1,22 @@
 import Foundation
 
 public actor ShellCommandExecutor {
-    public init() {}
+    private let executor: CommandLineExecutor
 
-    public func run(_ command: String) throws -> String {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
+    public init(executor: CommandLineExecutor = CommandLineExecutor()) {
+        self.executor = executor
+    }
 
-        process.executableURL = URL(filePath: "/bin/zsh")
-        process.arguments = ["-lc", command]
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
+    public func run(_ command: String) async throws -> String {
+        let result = try await executor.run(
+            executableURL: URL(filePath: "/bin/zsh"),
+            arguments: ["-lc", command]
+        )
 
-        try process.run()
-        process.waitUntilExit()
-
-        let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let error = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let outputText = String(data: output, encoding: .utf8) ?? ""
-        let errorText = String(data: error, encoding: .utf8) ?? ""
-
-        guard process.terminationStatus == 0 else {
-            throw WorkflowRunError.commandFailed(errorText.isEmpty ? outputText : errorText)
+        guard result.succeeded else {
+            throw WorkflowRunError.commandFailed(result.combinedOutput)
         }
 
-        return outputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.output
     }
 }

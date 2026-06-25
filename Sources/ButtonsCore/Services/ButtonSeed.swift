@@ -89,11 +89,11 @@ public enum ButtonSeed {
                     WorkflowStep(
                         title: "Workflow",
                         kind: .askAI,
-                        value: "Inspect the current button workspace, complete the repetitive task described in this run prompt, and leave behind a reusable script or durable notes that make the next click cheaper.",
+                        value: "Inspect the current button workspace, complete the repetitive task described in this run prompt, and improve the button's memory so the next click is cheaper.",
                         aiConfiguration: AIConfiguration(
                             provider: .codex,
                             model: "",
-                            systemPrompt: "Be direct. Return a useful result, not a conversation.",
+                            systemPrompt: "Run the button as an operational task. Improve its durable memory after the task is done.",
                             executionMode: .workspaceWrite
                         )
                     ),
@@ -121,12 +121,12 @@ public enum ButtonSeed {
                     value: """
                     Star the GitHub repository companion-inc/buttons and open it in the browser.
 
-                    Build the reusable script so this button can later handle a different repository when the run prompt names one. Accept either owner/name or a github.com URL from BUTTON_RUN_PROMPT. Use `gh api -X PUT /user/starred/{owner}/{repo}` when GitHub CLI auth is available, then open https://github.com/{owner}/{repo}. Print what happened and what blocked the star when auth or repo access fails.
+                    Improve this button so later runs can handle a different repository when the run prompt names one. Accept either owner/name or a github.com URL from the run prompt. Use `gh api -X PUT /user/starred/{owner}/{repo}` when GitHub CLI auth is available, then open https://github.com/{owner}/{repo}. Print what happened and what blocked the star when auth or repo access fails.
                     """,
                     aiConfiguration: AIConfiguration(
                         provider: .codex,
                         model: "",
-                        systemPrompt: "Be operational. Produce and run the reusable script; do not stop at an explanation.",
+                        systemPrompt: "Be operational. Run the button now, then improve its durable memory; do not stop at an explanation.",
                         executionMode: .workspaceWrite
                     )
                 ),
