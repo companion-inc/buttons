@@ -12,6 +12,7 @@ public final class ButtonLibrary {
     private let repository: FileButtonRepository
     private let receiptRepository: ButtonRunReceiptRepository
     private let runner: WorkflowRunner
+    private let metadataExtractor = ButtonMetadataExtractor()
 
     public init(
         repository: FileButtonRepository,
@@ -96,6 +97,12 @@ public final class ButtonLibrary {
 
     public func receipts(for button: ActionButton) -> [ButtonRunReceipt] {
         receipts.filter { $0.buttonID == button.id }
+    }
+
+    /// Ask a small local model to label a prompt (name, category, goal, color,
+    /// icon). Returns nil when the model is unavailable so callers can fall back.
+    public func deriveMetadata(forPrompt prompt: String, provider: AIProvider) async -> ButtonMetadata? {
+        await metadataExtractor.metadata(forPrompt: prompt, provider: provider)
     }
 
     private func save() async {

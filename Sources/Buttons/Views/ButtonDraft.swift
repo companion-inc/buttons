@@ -64,7 +64,7 @@ struct ButtonDraft {
             title: title,
             subtitle: subtitle,
             category: trimmedCategory,
-            taskDescription: taskDescription,
+            taskDescription: resolvedTaskDescription,
             face: ButtonFace(symbolName: symbolName, color: color, surface: surface),
             workflow: ButtonWorkflow(
                 steps: [
@@ -82,6 +82,29 @@ struct ButtonDraft {
             updatedAt: Date()
         )
     }
+
+    // The agent gets a one-line "Goal:" from taskDescription. The user no longer
+    // fills a separate goal box, so derive it from the prompt when it's blank or
+    // still the seed placeholder — but only once a real prompt has been written,
+    // which keeps an untouched new button matching the library's default-cleanup.
+    private var resolvedTaskDescription: String {
+        let trimmedDescription = taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPrompt = stepValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let descriptionMissing = trimmedDescription.isEmpty || trimmedDescription == Self.seedTaskDescription
+        let hasRealPrompt = !trimmedPrompt.isEmpty && trimmedPrompt != Self.seedPrompt
+
+        guard descriptionMissing, hasRealPrompt else { return taskDescription }
+
+        let firstLine = trimmedPrompt
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init) ?? trimmedPrompt
+        return firstLine.trimmingCharacters(in: .whitespaces)
+    }
+
+    private static let seedPrompt = "Do this repetitive workflow end to end."
+    private static let seedTaskDescription = "Do the repetitive task."
 
     private var aiConfiguration: AIConfiguration? {
         return AIConfiguration(

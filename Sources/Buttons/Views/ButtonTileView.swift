@@ -72,6 +72,8 @@ struct ButtonTileView: View {
                 .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             }
             .buttonStyle(PhysicalButtonTileStyle(face: button.face))
+            .accessibilityLabel(button.title)
+            .accessibilityHint("Runs \(button.taskDescription)")
             .overlay(
                 RoundedRectangle(cornerRadius: 38, style: .continuous)
                     .strokeBorder(isSelected ? Color.black.opacity(0.42) : Color.clear, lineWidth: 3)
@@ -87,7 +89,8 @@ struct ButtonTileView: View {
             }
             .buttonStyle(.plain)
             .padding(11)
-            .accessibilityLabel("Settings")
+            .accessibilityLabel("Settings for \(button.title)")
+            .accessibilityHint("Opens button settings")
         }
         .contextMenu {
             Button("Edit", systemImage: "slider.horizontal.3") {
@@ -107,8 +110,6 @@ struct ButtonTileView: View {
                 deleteAction(button)
             }
         }
-        .accessibilityLabel(button.title)
-        .accessibilityHint(button.taskDescription)
     }
 
     private var iconBackground: some ShapeStyle {

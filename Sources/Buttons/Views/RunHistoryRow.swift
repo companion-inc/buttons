@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RunHistoryRow: View {
     let receipt: ButtonRunReceipt
+    @State private var isLogExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -24,14 +25,20 @@ struct RunHistoryRow: View {
                 .foregroundStyle(.secondary)
 
             if !receipt.output.isEmpty {
-                Text(receipt.output)
-                    .font(.caption.monospaced())
-                    .lineLimit(8)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.black.opacity(0.055))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                DisclosureGroup(isExpanded: $isLogExpanded) {
+                    Text(receipt.output)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.black.opacity(0.055))
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(.top, 4)
+                } label: {
+                    Text("Log")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(16)

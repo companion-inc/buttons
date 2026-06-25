@@ -1,3 +1,4 @@
+import AppKit
 import ButtonsCore
 import SwiftUI
 
@@ -13,7 +14,9 @@ struct ButtonWorkflowColumnView: View {
     @State private var latestReceipt: ButtonRunReceipt?
     @State private var isRunning = false
     @State private var runTask: Task<Void, Never>?
-    @State private var showAdvanced = false
+    @State private var showSettings = false
+    @State private var titleIsAuto: Bool
+    @State private var isNaming = false
 
     init(
         button: ActionButton,
@@ -28,17 +31,20 @@ struct ButtonWorkflowColumnView: View {
         self.shareAction = shareAction
         self.deleteAction = deleteAction
         _draft = State(initialValue: ButtonDraft(button: button))
+
+        // A fresh button keeps deriving its name from the prompt until the user
+        // renames it by hand. An existing, already-named button keeps its name.
+        let trimmedTitle = button.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        _titleIsAuto = State(initialValue: trimmedTitle.isEmpty || trimmedTitle == "New Button")
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                workflowSection
-                agentSection
-                buttonSection
-                advancedSection
+                promptSection
                 runSection
+                settingsSection
                 logsSection
             }
             .padding(22)
@@ -60,9 +66,22 @@ struct ButtonWorkflowColumnView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(draft.title)
-                    .font(.title2.bold())
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(draft.title)
+                        .font(.title2.bold())
+                        .lineLimit(1)
+
+                    if isNaming {
+                        HStack(spacing: 5) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Naming…")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .transition(.opacity)
+                    }
+                }
                 HStack(spacing: 8) {
                     Text(draft.category)
                         .font(.caption.bold())
@@ -91,91 +110,169 @@ struct ButtonWorkflowColumnView: View {
         }
     }
 
-    private var workflowSection: some View {
-        DetailCard(title: "Workflow") {
-            DetailTextField(label: "What this button does", text: $draft.taskDescription, axis: .vertical, minHeight: 72)
-            DetailTextField(label: "Run prompt", text: $draft.stepValue, axis: .vertical, minHeight: 170)
+    private var promptSection: some View {
+        DetailCard(title: "Prompt") {
+            DetailTextField(
+                label: "What should this button do?",
+                text: $draft.stepValue,
+                axis: .vertical,
+                minHeight: 200
+            )
         }
     }
 
-    private var agentSection: some View {
-        DetailCard(title: "Agent") {
-            HStack(spacing: 12) {
-                DetailMenuPicker(label: "Runner", selection: $draft.aiProvider) {
-                    ForEach(AIProvider.allCases) { provider in
-                        Text(provider.title).tag(provider)
+    private var settingsSection: some View {
+        DetailCard(title: "Settings") {
+            DisclosureGroup(isExpanded: $showSettings) {
+                VStack(alignment: .leading, spacing: 16) {
+                    settingsGroup("Button") {
+                        HStack(spacing: 12) {
+                            DetailTextField(label: "Name", text: nameBinding)
+                            DetailTextField(label: "Category", text: $draft.category)
+                        }
+
+                        HStack(spacing: 12) {
+                            DetailMenuPicker(label: "Color", selection: $draft.color) {
+                                ForEach(ButtonColor.allCases) { color in
+                                    Text(color.title).tag(color)
+                                }
+                            }
+
+                            DetailMenuPicker(label: "Surface", selection: $draft.surface) {
+                                ForEach(ButtonSurface.allCases) { surface in
+                                    Text(surface.title).tag(surface)
+                                }
+                            }
+                        }
+                    }
+
+                    settingsGroup("Agent") {
+                        HStack(spacing: 12) {
+                            DetailMenuPicker(label: "Runner", selection: $draft.aiProvider) {
+                                ForEach(AIProvider.allCases) { provider in
+                                    Text(provider.title).tag(provider)
+                                }
+                            }
+
+                            DetailMenuPicker(label: "Thinking", selection: $draft.aiThinkingLevel) {
+                                ForEach(AgentThinkingLevel.allCases) { level in
+                                    Text(level.title).tag(level)
+                                }
+                            }
+                        }
+
+                        HStack(spacing: 12) {
+                            DetailMenuPicker(label: "Permission", selection: $draft.aiExecutionMode) {
+                                ForEach(AIExecutionMode.allCases) { mode in
+                                    Text(mode.title).tag(mode)
+                                }
+                            }
+
+                            DetailMenuPicker(label: "Run safety", selection: $draft.approvalPolicy) {
+                                ForEach(ApprovalPolicy.allCases) { policy in
+                                    Text(policy.title).tag(policy)
+                                }
+                            }
+                        }
+                    }
+
+                    settingsGroup("Advanced") {
+                        DetailTextField(label: "Goal summary", text: $draft.taskDescription)
+                        DetailTextField(label: "Workspace slug", text: $draft.slug)
+                        DetailTextField(label: "Caption", text: $draft.subtitle)
+                        DetailTextField(label: "Symbol", text: $draft.symbolName)
+                        DetailTextField(label: "Model", text: $draft.aiModel)
+                        DetailTextField(label: "Agent instruction", text: $draft.aiSystemPrompt, axis: .vertical, minHeight: 78)
                     }
                 }
-
-                DetailMenuPicker(label: "Thinking", selection: $draft.aiThinkingLevel) {
-                    ForEach(AgentThinkingLevel.allCases) { level in
-                        Text(level.title).tag(level)
-                    }
-                }
-
-                DetailMenuPicker(label: "Permission", selection: $draft.aiExecutionMode) {
-                    ForEach(AIExecutionMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-            }
-        }
-    }
-
-    private var buttonSection: some View {
-        DetailCard(title: "Button") {
-            HStack(spacing: 12) {
-                DetailTextField(label: "Name", text: $draft.title)
-                DetailTextField(label: "Category", text: $draft.category)
-            }
-
-            DetailTextField(label: "Workspace slug", text: $draft.slug)
-
-            HStack(spacing: 12) {
-                DetailMenuPicker(label: "Color", selection: $draft.color) {
-                    ForEach(ButtonColor.allCases) { color in
-                        Text(color.title).tag(color)
-                    }
-                }
-
-                DetailMenuPicker(label: "Surface", selection: $draft.surface) {
-                    ForEach(ButtonSurface.allCases) { surface in
-                        Text(surface.title).tag(surface)
-                    }
-                }
-
-                DetailMenuPicker(label: "Run safety", selection: $draft.approvalPolicy) {
-                    ForEach(ApprovalPolicy.allCases) { policy in
-                        Text(policy.title).tag(policy)
-                    }
-                }
-            }
-        }
-    }
-
-    private var advancedSection: some View {
-        DetailCard(title: "Advanced") {
-            DisclosureGroup(isExpanded: $showAdvanced) {
-                VStack(alignment: .leading, spacing: 12) {
-                    DetailTextField(label: "Caption", text: $draft.subtitle)
-                    DetailTextField(label: "Symbol", text: $draft.symbolName)
-                    DetailTextField(label: "Model", text: $draft.aiModel)
-                    DetailTextField(label: "Agent instruction", text: $draft.aiSystemPrompt, axis: .vertical, minHeight: 78)
-                }
-                .padding(.top, 10)
+                .padding(.top, 12)
             } label: {
-                Text("Model, icon, and agent instruction")
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Name, agent, color, permissions")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
             }
         }
     }
+
+    @ViewBuilder
+    private func settingsGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            content()
+        }
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { draft.title },
+            set: { newValue in
+                draft.title = newValue
+                // Once the user types a name, stop overwriting it from the prompt.
+                titleIsAuto = false
+            }
+        )
+    }
+
+    /// Runs once, when the user saves or runs a still-unnamed button: a small
+    /// read-only model reads the prompt and fills the name, category, goal, color,
+    /// and icon. Only fields the user hasn't customized are touched, so a manual
+    /// name in Settings always wins. Falls back to nothing if the model is offline.
+    private func applyAutoMetadataIfNeeded() async {
+        guard titleIsAuto else { return }
+
+        let prompt = draft.stepValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty, prompt != Self.seedPrompt else { return }
+
+        isNaming = true
+        defer { isNaming = false }
+
+        guard let meta = await library.deriveMetadata(forPrompt: prompt, provider: draft.aiProvider) else {
+            return
+        }
+
+        draft.title = meta.name
+        draft.slug = ButtonWorkspaceSlug.make(from: meta.name)
+
+        let category = draft.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !meta.category.isEmpty, category.isEmpty || category == "General" {
+            draft.category = meta.category
+        }
+
+        let goal = draft.taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !meta.goal.isEmpty, goal.isEmpty || goal == Self.seedTaskDescription {
+            draft.taskDescription = meta.goal
+        }
+
+        if draft.color == .poppy, let raw = meta.colorRawValue, let color = ButtonColor(rawValue: raw) {
+            draft.color = color
+        }
+
+        if draft.symbolName == Self.seedSymbol, let symbol = meta.symbolName, Self.isValidSymbol(symbol) {
+            draft.symbolName = symbol
+        }
+
+        titleIsAuto = false
+    }
+
+    private static func isValidSymbol(_ name: String) -> Bool {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil
+    }
+
+    private static let seedPrompt = "Do this repetitive workflow end to end."
+    private static let seedTaskDescription = "Do the repetitive task."
+    private static let seedSymbol = "button.programmable"
 
     private var runSection: some View {
         VStack(spacing: 12) {
             HStack(spacing: 10) {
                 Button("Save", systemImage: "checkmark", action: save)
                     .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.66)))
+                    .disabled(isRunning)
+                    .opacity(isRunning ? 0.42 : 1)
 
                 Spacer()
 
@@ -183,16 +280,22 @@ struct ButtonWorkflowColumnView: View {
                     shareAction(draft.button)
                 }
                 .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.52)))
+                .disabled(isRunning)
+                .opacity(isRunning ? 0.42 : 1)
 
                 Button("Duplicate", systemImage: "plus.square.on.square") {
                     duplicateAction(draft.button)
                 }
                 .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.52)))
+                .disabled(isRunning)
+                .opacity(isRunning ? 0.42 : 1)
 
                 Button("Delete", systemImage: "trash", role: .destructive) {
                     deleteAction(draft.button)
                 }
                 .buttonStyle(ChromePillButtonStyle(tint: .red.opacity(0.82)))
+                .disabled(isRunning)
+                .opacity(isRunning ? 0.42 : 1)
 
                 Button(isRunning ? "Stop" : "Run", systemImage: isRunning ? "stop.fill" : "play.fill", action: run)
                     .buttonStyle(AgentLaunchButtonStyle(color: isRunning ? .red : draft.color.swiftUIColor))
@@ -226,6 +329,8 @@ struct ButtonWorkflowColumnView: View {
     private func save() {
         Task {
             await upsertDraftButton()
+            await applyAutoMetadataIfNeeded()
+            await upsertDraftButton()
         }
     }
 
@@ -247,6 +352,11 @@ struct ButtonWorkflowColumnView: View {
             latestReceipt = receipt
             isRunning = false
             runTask = nil
+
+            guard receipt.status != .canceled else { return }
+
+            await applyAutoMetadataIfNeeded()
+            await upsertDraftButton()
         }
     }
 
