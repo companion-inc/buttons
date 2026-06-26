@@ -66,5 +66,13 @@ struct WorkflowRunnerTests {
         #expect(workspace.readAutomation(for: button).contains("optimized"))
         #expect(FileManager.default.isExecutableFile(atPath: runnerURL.path))
         #expect(FileManager.default.fileExists(atPath: workspace.logsURL(for: button).path))
+        #expect(FileManager.default.fileExists(atPath: workspace.computerUseURL(for: button).path))
+        #expect(FileManager.default.fileExists(atPath: workspace.computerUseToolsURL(for: button).path))
+
+        let computerUseTools = try String(contentsOf: workspace.computerUseToolsURL(for: button), encoding: .utf8)
+        #expect(computerUseTools.contains("ButtonsComputerUseRuntime"))
+        #expect(computerUseTools.contains("Snapshot before acting"))
+        #expect(computerUseTools.contains("Do not use shell `open`, AppleScript, `osascript`"))
+        #expect(!computerUseTools.contains("open -a"))
     }
 }

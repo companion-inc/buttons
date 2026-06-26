@@ -13,7 +13,7 @@ public actor LocalAgentRunner {
             let result = try await executor.run(
                 executableURL: executableURL,
                 arguments: provider.loginStatusArguments,
-                environment: agentEnvironment
+                environment: agentEnvironment()
             )
             let details = result.combinedOutput.isEmpty ? "\(provider.shortTitle) is authenticated." : result.combinedOutput
 
@@ -46,7 +46,8 @@ public actor LocalAgentRunner {
     public func run(
         configuration: AIConfiguration,
         prompt: String,
-        additionalWritableDirectories: [String] = []
+        additionalWritableDirectories: [String] = [],
+        environmentOverrides: [String: String] = [:]
     ) async throws -> String {
         let executableURL = try await executableURL(for: configuration.provider)
 
@@ -56,14 +57,16 @@ public actor LocalAgentRunner {
                 executableURL: executableURL,
                 configuration: configuration,
                 prompt: prompt,
-                additionalWritableDirectories: additionalWritableDirectories
+                additionalWritableDirectories: additionalWritableDirectories,
+                environmentOverrides: environmentOverrides
             )
         case .claudeCode:
             return try await runClaude(
                 executableURL: executableURL,
                 configuration: configuration,
                 prompt: prompt,
-                additionalWritableDirectories: additionalWritableDirectories
+                additionalWritableDirectories: additionalWritableDirectories,
+                environmentOverrides: environmentOverrides
             )
         }
     }
@@ -150,7 +153,8 @@ public actor LocalAgentRunner {
         executableURL: URL,
         configuration: AIConfiguration,
         prompt: String,
-        additionalWritableDirectories: [String]
+        additionalWritableDirectories: [String],
+        environmentOverrides: [String: String]
     ) async throws -> String {
         let lastMessageURL = FileManager.default.temporaryDirectory.appending(path: "ButtonsCodex-\(UUID().uuidString).txt")
         defer {
@@ -166,7 +170,7 @@ public actor LocalAgentRunner {
                 additionalWritableDirectories: additionalWritableDirectories
             ),
             currentDirectoryURL: URL(filePath: Self.normalizedWorkingDirectory(configuration.workingDirectory)),
-            environment: agentEnvironment
+            environment: agentEnvironment(overrides: environmentOverrides)
         )
 
         let lastMessage = (try? String(contentsOf: lastMessageURL, encoding: .utf8))?
@@ -183,7 +187,8 @@ public actor LocalAgentRunner {
         executableURL: URL,
         configuration: AIConfiguration,
         prompt: String,
-        additionalWritableDirectories: [String]
+        additionalWritableDirectories: [String],
+        environmentOverrides: [String: String]
     ) async throws -> String {
         let result = try await executor.run(
             executableURL: executableURL,
@@ -193,7 +198,7 @@ public actor LocalAgentRunner {
                 additionalWritableDirectories: additionalWritableDirectories
             ),
             currentDirectoryURL: URL(filePath: Self.normalizedWorkingDirectory(configuration.workingDirectory)),
-            environment: agentEnvironment
+            environment: agentEnvironment(overrides: environmentOverrides)
         )
 
         guard result.succeeded else {
@@ -221,7 +226,7 @@ public actor LocalAgentRunner {
         let result = try await executor.run(
             executableURL: URL(filePath: "/usr/bin/which"),
             arguments: [commandName],
-            environment: agentEnvironment
+            environment: agentEnvironment()
         )
 
         guard result.succeeded, !result.output.isEmpty else {
@@ -231,7 +236,7 @@ public actor LocalAgentRunner {
         return URL(filePath: result.output.components(separatedBy: .newlines).first ?? result.output)
     }
 
-    private var agentEnvironment: [String: String] {
+    private func agentEnvironment(overrides: [String: String] = [:]) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let defaultPath = [
@@ -249,6 +254,10 @@ public actor LocalAgentRunner {
             environment["PATH"] = "\(defaultPath):\(existingPath)"
         } else {
             environment["PATH"] = defaultPath
+        }
+
+        for (key, value) in overrides {
+            environment[key] = value
         }
 
         return environment

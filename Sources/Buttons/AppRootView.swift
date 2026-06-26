@@ -10,6 +10,7 @@ struct AppRootView: View {
     @State private var isImporting = false
     @State private var pendingRunButton: ActionButton?
     @State private var pendingRunReceipt: ButtonRunReceipt?
+    @State private var pendingRunEvents: [String] = []
     @State private var isPendingRunRunning = false
     @State private var pendingRunTask: Task<Void, Never>?
     @Namespace private var buttonZoomNamespace
@@ -62,7 +63,9 @@ struct AppRootView: View {
                     namespace: buttonZoomNamespace,
                     isRunning: isPendingRunRunning,
                     receipt: pendingRunReceipt,
+                    runEvents: pendingRunEvents,
                     cancelAction: cancelPendingRun,
+                    saveAction: savePendingRunPrompt,
                     runAction: confirmPendingRun
                 )
                 .zIndex(20)
@@ -127,6 +130,7 @@ struct AppRootView: View {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
             pendingRunButton = nil
             pendingRunReceipt = nil
+            pendingRunEvents = []
             isPendingRunRunning = false
             pendingRunTask?.cancel()
             pendingRunTask = nil
@@ -168,6 +172,7 @@ struct AppRootView: View {
             detailSelection = nil
             pendingRunButton = button
             pendingRunReceipt = nil
+            pendingRunEvents = []
             isPendingRunRunning = false
         }
 
@@ -192,6 +197,22 @@ struct AppRootView: View {
         )
     }
 
+    private func savePendingRunPrompt(_ prompt: String) {
+        guard var button = pendingRunButton else {
+            return
+        }
+
+        if var firstStep = button.workflow.steps.first {
+            firstStep.value = prompt
+            button.workflow.steps[0] = firstStep
+        }
+
+        Task { @MainActor in
+            await library.update(button)
+            pendingRunButton = button
+        }
+    }
+
     private func cancelPendingRun() {
         if isPendingRunRunning {
             pendingRunTask?.cancel()
@@ -201,6 +222,7 @@ struct AppRootView: View {
         withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
             pendingRunButton = nil
             pendingRunReceipt = nil
+            pendingRunEvents = []
             isPendingRunRunning = false
             pendingRunTask = nil
         }
@@ -216,8 +238,15 @@ struct AppRootView: View {
 
         isPendingRunRunning = true
         pendingRunReceipt = nil
+        pendingRunEvents = []
         pendingRunTask = Task {
-            let receipt = await runNow(button, prompt: prompt)
+            let receipt = await runNow(
+                button,
+                prompt: prompt,
+                eventHandler: { event in
+                    pendingRunEvents.append(event)
+                }
+            )
             pendingRunReceipt = receipt
             isPendingRunRunning = false
             pendingRunTask = nil
@@ -225,12 +254,17 @@ struct AppRootView: View {
     }
 
     @discardableResult
-    private func runNow(_ button: ActionButton, prompt: String) async -> ButtonRunReceipt {
+    private func runNow(
+        _ button: ActionButton,
+        prompt: String,
+        eventHandler: ButtonRunEventHandler? = nil
+    ) async -> ButtonRunReceipt {
         let currentButton = library.button(id: button.id) ?? button
         return await library.run(
             currentButton,
             prompt: prompt,
-            configurationOverride: currentButton.workflow.steps.first?.aiConfiguration
+            configurationOverride: currentButton.workflow.steps.first?.aiConfiguration,
+            eventHandler: eventHandler
         )
     }
 
@@ -255,6 +289,7 @@ struct AppRootView: View {
                 pendingRunTask = nil
                 pendingRunButton = nil
                 pendingRunReceipt = nil
+                pendingRunEvents = []
                 isPendingRunRunning = false
             }
         }

@@ -12,6 +12,7 @@ struct ButtonWorkflowColumnView: View {
 
     @State private var draft: ButtonDraft
     @State private var latestReceipt: ButtonRunReceipt?
+    @State private var runEvents: [String] = []
     @State private var isRunning = false
     @State private var runTask: Task<Void, Never>?
     @State private var showSettings = false
@@ -271,6 +272,7 @@ struct ButtonWorkflowColumnView: View {
             HStack(spacing: 10) {
                 Button("Save", systemImage: "checkmark", action: save)
                     .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.66)))
+                    .keyboardShortcut("s", modifiers: .command)
                     .disabled(isRunning)
                     .opacity(isRunning ? 0.42 : 1)
 
@@ -305,6 +307,10 @@ struct ButtonWorkflowColumnView: View {
 
     private var logsSection: some View {
         DetailCard(title: "Runs") {
+            if isRunning || !runEvents.isEmpty {
+                currentStateView
+            }
+
             if let latestReceipt {
                 RunHistoryRow(receipt: latestReceipt)
             }
@@ -326,6 +332,40 @@ struct ButtonWorkflowColumnView: View {
         }
     }
 
+    private var currentStateView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Current state")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+
+            Text(runEvents.last ?? "Starting.")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if runEvents.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(runEvents.suffix(5).enumerated()), id: \.offset) { _, event in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(draft.color.swiftUIColor.opacity(0.72))
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
+                            Text(event)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.black.opacity(0.045))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private func save() {
         Task {
             await upsertDraftButton()
@@ -341,13 +381,17 @@ struct ButtonWorkflowColumnView: View {
         }
 
         isRunning = true
+        runEvents = []
         runTask = Task {
             let currentButton = draft.button
             await upsert(currentButton)
             let receipt = await library.run(
                 currentButton,
                 prompt: currentButton.workflow.steps.first?.value ?? "",
-                configurationOverride: currentButton.workflow.steps.first?.aiConfiguration
+                configurationOverride: currentButton.workflow.steps.first?.aiConfiguration,
+                eventHandler: { event in
+                    runEvents.append(event)
+                }
             )
             latestReceipt = receipt
             isRunning = false

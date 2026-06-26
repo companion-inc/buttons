@@ -83,12 +83,14 @@ public final class ButtonLibrary {
     public func run(
         _ button: ActionButton,
         prompt: String,
-        configurationOverride: AIConfiguration? = nil
+        configurationOverride: AIConfiguration? = nil,
+        eventHandler: ButtonRunEventHandler? = nil
     ) async -> ButtonRunReceipt {
         let receipt = await runner.run(
             button: button,
             prompt: prompt,
-            configurationOverride: configurationOverride
+            configurationOverride: configurationOverride,
+            eventHandler: eventHandler
         )
         receipts.insert(receipt, at: 0)
         await saveReceipts()

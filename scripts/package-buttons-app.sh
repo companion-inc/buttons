@@ -13,11 +13,13 @@ if [ -z "$build_number" ]; then
 fi
 
 cd "$repo_root"
-swift build --configuration "$configuration"
+swift build --configuration "$configuration" --product Buttons
+swift build --configuration "$configuration" --product ButtonsComputerUseRuntime
 
 rm -rf "$app_dir"
-mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
+mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources" "$app_dir/Contents/Helpers"
 cp "$build_dir/Buttons" "$app_dir/Contents/MacOS/Buttons"
+cp "$build_dir/ButtonsComputerUseRuntime" "$app_dir/Contents/Helpers/ButtonsComputerUseRuntime"
 
 cat > "$app_dir/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -46,6 +48,8 @@ cat > "$app_dir/Contents/Info.plist" <<PLIST
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Buttons needs screen recording access so button agents can see the current screen when running computer-use workflows.</string>
 </dict>
 </plist>
 PLIST

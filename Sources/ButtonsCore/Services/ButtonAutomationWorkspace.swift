@@ -46,6 +46,22 @@ public struct ButtonAutomationWorkspace: Sendable {
         workspaceURL(for: button).appending(path: "logs", directoryHint: .isDirectory)
     }
 
+    public func computerUseURL(for button: ActionButton) -> URL {
+        workspaceURL(for: button).appending(path: "computer-use", directoryHint: .isDirectory)
+    }
+
+    public func computerUseContextURL(for button: ActionButton) -> URL {
+        computerUseURL(for: button).appending(path: "context.md")
+    }
+
+    public func computerUseToolsURL(for button: ActionButton) -> URL {
+        computerUseURL(for: button).appending(path: "TOOLS.md")
+    }
+
+    public func accessibilityTreeURL(for button: ActionButton) -> URL {
+        computerUseURL(for: button).appending(path: "accessibility-tree.md")
+    }
+
     public func agentURL(for button: ActionButton) -> URL {
         workspaceURL(for: button).appending(path: "agent", directoryHint: .isDirectory)
     }
@@ -55,8 +71,10 @@ public struct ButtonAutomationWorkspace: Sendable {
         try FileManager.default.createDirectory(at: automationURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: skillsURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: logsURL(for: button), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: computerUseURL(for: button), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: agentURL(for: button), withIntermediateDirectories: true)
         try writeSkillsReadmeIfNeeded(for: button)
+        try writeComputerUseTools(for: button)
         return workspaceURL
     }
 
@@ -122,6 +140,35 @@ public struct ButtonAutomationWorkspace: Sendable {
         The self-healing agent can read and update this folder when a button gets cheaper or more reliable.
         """
         try body.write(to: readmeURL, atomically: true, encoding: .utf8)
+    }
+
+    private func writeComputerUseTools(for button: ActionButton) throws {
+        let toolsURL = computerUseToolsURL(for: button)
+
+        let body = """
+        # Computer Use
+
+        Buttons refreshes this directory through its separate `ButtonsComputerUseRuntime` helper before each agent run.
+
+        Files:
+        - `context.md` summarizes permissions, visible screens, screenshots, and accessibility state.
+        - `screen-*.jpg` are the latest visible screen captures with Buttons' own windows excluded when possible.
+        - `accessibility-tree.md` is a bounded dump of visible macOS app windows and controls.
+
+        Runtime contract:
+        - Snapshot before acting, perform the narrowest UI action available, then verify from a fresh snapshot.
+        - Prefer structured app/API/CLI routes when they complete the task without visible GUI control.
+        - Use the accessibility tree for semantic targets before considering visual coordinates.
+        - Do not use shell `open`, AppleScript, `osascript`, `cliclick`, raw CGEvent helpers, Cmd-Tab, or address-bar hotkeys as the normal computer-use path.
+        - Stop before purchases, sends, deletes, payments, account changes, or irreversible actions unless the click's prompt explicitly approved that exact step.
+        - If Accessibility or Screen Recording is missing, say exactly which permission blocks the computer-use part of the run.
+
+        Environment:
+        - `BUTTON_COMPUTER_USE_RUNTIME` points at the packaged helper.
+        - `BUTTON_COMPUTER_USE_CONTEXT` points at `context.md`.
+        - `BUTTON_COMPUTER_USE_DIRECTORY` points at this folder.
+        """
+        try body.write(to: toolsURL, atomically: true, encoding: .utf8)
     }
 
     private func legacyRunnerURL(for button: ActionButton) -> URL {

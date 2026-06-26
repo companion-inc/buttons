@@ -6,23 +6,30 @@ struct RunConfirmationView: View {
     let namespace: Namespace.ID
     let isRunning: Bool
     let receipt: ButtonRunReceipt?
+    let runEvents: [String]
     let cancelAction: () -> Void
+    let saveAction: (String) -> Void
     let runAction: (String) -> Void
     @State private var prompt: String
+    @State private var didSavePrompt = false
 
     init(
         button: ActionButton,
         namespace: Namespace.ID,
         isRunning: Bool,
         receipt: ButtonRunReceipt?,
+        runEvents: [String],
         cancelAction: @escaping () -> Void,
+        saveAction: @escaping (String) -> Void,
         runAction: @escaping (String) -> Void
     ) {
         self.button = button
         self.namespace = namespace
         self.isRunning = isRunning
         self.receipt = receipt
+        self.runEvents = runEvents
         self.cancelAction = cancelAction
+        self.saveAction = saveAction
         self.runAction = runAction
         _prompt = State(initialValue: button.workflow.steps.first?.value ?? button.taskDescription)
     }
@@ -75,6 +82,9 @@ struct RunConfirmationView: View {
     private var runContent: some View {
         if let receipt {
             RunHistoryRow(receipt: receipt)
+            if !runEvents.isEmpty {
+                currentStateCard
+            }
             workspaceCard(title: "Saved in", detail: workspacePath)
         } else if isRunning {
             VStack(alignment: .leading, spacing: 14) {
@@ -87,9 +97,7 @@ struct RunConfirmationView: View {
 
                 workspaceCard(title: "Workspace", detail: workspacePath)
 
-                Text("The agent is completing this click and updating the button's memory for next time.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                currentStateCard
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -98,10 +106,47 @@ struct RunConfirmationView: View {
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 DetailTextField(label: "Run prompt", text: $prompt, axis: .vertical, minHeight: 168)
+                    .onChange(of: prompt) { _, _ in
+                        didSavePrompt = false
+                    }
 
                 workspaceCard(title: "Workspace", detail: workspacePath)
             }
         }
+    }
+
+    private var currentStateCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Current state")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+
+            Text(runEvents.last ?? "Starting.")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if runEvents.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(runEvents.suffix(5).enumerated()), id: \.offset) { _, event in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(button.face.color.swiftUIColor.opacity(0.72))
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
+                            Text(event)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.black.opacity(0.045))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var controls: some View {
@@ -112,6 +157,10 @@ struct RunConfirmationView: View {
             Spacer()
 
             if receipt == nil, !isRunning {
+                Button(saveControlTitle, systemImage: saveControlSymbol, action: save)
+                    .buttonStyle(ChromePillButtonStyle(tint: didSavePrompt ? .green.opacity(0.72) : .black.opacity(0.52)))
+                    .keyboardShortcut("s", modifiers: .command)
+
                 Button("Run", systemImage: "play.fill", action: run)
                     .buttonStyle(AgentLaunchButtonStyle(color: button.face.color.swiftUIColor))
             }
@@ -191,6 +240,14 @@ struct RunConfirmationView: View {
         return receipt == nil ? "xmark" : "checkmark"
     }
 
+    private var saveControlTitle: String {
+        didSavePrompt ? "Saved" : "Save"
+    }
+
+    private var saveControlSymbol: String {
+        didSavePrompt ? "checkmark" : "tray.and.arrow.down"
+    }
+
     private var screenBackground: some ShapeStyle {
         LinearGradient(
             colors: [
@@ -205,5 +262,10 @@ struct RunConfirmationView: View {
 
     private func run() {
         runAction(prompt)
+    }
+
+    private func save() {
+        saveAction(prompt)
+        didSavePrompt = true
     }
 }
