@@ -8,18 +8,15 @@ public final class WorkflowRunner {
     private let shell: ShellCommandExecutor
     private let localAgents: LocalAgentRunner
     private let automationWorkspace: ButtonAutomationWorkspace
-    private let computerUseRuntime: ComputerUseRuntime
 
     public init(
         shell: ShellCommandExecutor = ShellCommandExecutor(),
         localAgents: LocalAgentRunner = LocalAgentRunner(),
-        automationWorkspace: ButtonAutomationWorkspace = .production(),
-        computerUseRuntime: ComputerUseRuntime = ComputerUseRuntime()
+        automationWorkspace: ButtonAutomationWorkspace = .production()
     ) {
         self.shell = shell
         self.localAgents = localAgents
         self.automationWorkspace = automationWorkspace
-        self.computerUseRuntime = computerUseRuntime
     }
 
     public func run(
@@ -149,13 +146,6 @@ public final class WorkflowRunner {
 
         eventHandler?("Preparing button workspace.")
         let workspaceURL = try automationWorkspace.ensureWorkspace(for: button)
-        eventHandler?("Refreshing computer-use context.")
-        let computerUseContext = await computerUseRuntime.collect(
-            for: button,
-            workspace: automationWorkspace
-        )
-        let computerUseRuntimeURL = computerUseRuntime.executableURL()
-        eventHandler?("Computer-use context ready.")
         let agentConfiguration = buttonAgentConfiguration(
             configuration: configuration,
             workspaceURL: workspaceURL
@@ -163,9 +153,7 @@ public final class WorkflowRunner {
         let context = buttonContext(
             button: button,
             prompt: prompt,
-            workspaceURL: workspaceURL,
-            computerUseContext: computerUseContext,
-            computerUseRuntimeURL: computerUseRuntimeURL
+            workspaceURL: workspaceURL
         )
         try automationWorkspace.writeContext(context, for: button)
         eventHandler?("Wrote button context.")
@@ -173,24 +161,17 @@ public final class WorkflowRunner {
         eventHandler?("Running \(configuration.provider.shortTitle).")
         let agentOutput = try await localAgents.run(
             configuration: agentConfiguration,
-            prompt: agentRunPrompt(
-                context: context,
-                existingAutomation: automationWorkspace.readAutomation(for: button)
-            ),
+            prompt: agentRunPrompt(context: context),
             environmentOverrides: buttonEnvironment(
                 button: button,
                 prompt: prompt,
-                workspaceURL: workspaceURL,
-                computerUseContext: computerUseContext,
-                computerUseRuntimeURL: computerUseRuntimeURL
+                workspaceURL: workspaceURL
             )
         )
-        automationWorkspace.markAutomationExecutable(for: button)
         eventHandler?("\(configuration.provider.shortTitle) returned.")
-        eventHandler?("Updated button memory.")
 
         return """
-        Agent ran this button and updated its optimization memory.
+        Agent ran this button.
         Workspace: \(workspaceURL.path)
 
         \(agentOutput)
@@ -200,9 +181,7 @@ public final class WorkflowRunner {
     private func buttonContext(
         button: ActionButton,
         prompt: String,
-        workspaceURL: URL,
-        computerUseContext: ComputerUseContextSnapshot,
-        computerUseRuntimeURL: URL?
+        workspaceURL: URL
     ) -> String {
         """
         Button: \(button.title)
@@ -217,26 +196,8 @@ public final class WorkflowRunner {
         Button workspace:
         \(workspaceURL.path)
 
-        Optimization runner path:
-        \(automationWorkspace.runnerURL(for: button).path)
-
-        Button skills directory:
-        \(automationWorkspace.skillsURL(for: button).path)
-
         Button logs directory:
         \(automationWorkspace.logsURL(for: button).path)
-
-        Agent scratch directory:
-        \(automationWorkspace.agentURL(for: button).path)
-
-        Computer use context:
-        \(computerUseContext.contextURL.path)
-
-        Computer use runtime:
-        \(computerUseRuntimeURL?.path ?? "ButtonsComputerUseRuntime is not installed beside Buttons.")
-
-        Computer use summary:
-        \(computerUseContext.summary)
 
         Values the agent should treat as the button environment:
         - BUTTON_ID
@@ -244,78 +205,43 @@ public final class WorkflowRunner {
         - BUTTON_TITLE
         - BUTTON_RUN_PROMPT
         - BUTTON_WORKSPACE
-        - BUTTON_AUTOMATION_PATH
-        - BUTTON_SKILLS_DIRECTORY
         - BUTTON_LOGS_DIRECTORY
-        - BUTTON_AGENT_DIRECTORY
-        - BUTTON_COMPUTER_USE_DIRECTORY
-        - BUTTON_COMPUTER_USE_CONTEXT
-        - BUTTON_COMPUTER_USE_RUNTIME
         """
     }
 
-    private func agentRunPrompt(context: String, existingAutomation: String) -> String {
+    private func agentRunPrompt(context: String) -> String {
         """
         You are running a Buttons button.
 
-        Complete the button's run now. Every click belongs to the local AI agent. The button workspace is durable memory that should make later clicks cheaper, faster, or more reliable.
+        Complete the saved button instruction now.
 
         Requirements:
         - Execute the run prompt end to end before reporting back.
         - Treat the run prompt as the only user-provided input for this click.
-        - Read and update the button workspace when it helps future runs.
-        - Read the computer-use context before doing any desktop, browser, app, visual, or UI task.
-        - Use `computer-use/context.md`, `computer-use/accessibility-tree.md`, and `computer-use/screen-*.jpg` as the current visible computer state.
-        - Treat `BUTTON_COMPUTER_USE_RUNTIME` as the product computer-use helper for this run.
-        - Follow the computer-use loop in `computer-use/TOOLS.md`: snapshot, act with the narrowest available route, then verify from fresh state.
-        - Prefer structured app/API/CLI routes when they complete the task without visible GUI control.
-        - Do not use shell `open`, AppleScript, `osascript`, `cliclick`, raw CGEvent helpers, Cmd-Tab, or browser address-bar hotkeys as the normal computer-use route.
-        - Use the optimization runner path only as an internal acceleration artifact.
-        - Use the skills directory for durable notes, procedures, and button-specific reusable instructions.
-        - Use the agent scratch directory for temporary repair or improvement work.
-        - Reuse existing automation when it is correct, repair it when it is broken, and replace it when the task has changed.
-        - Keep anything reusable idempotent and non-interactive.
+        - Prefer structured app, API, and CLI routes over visible GUI control.
+        - Do not use Computer Use unless the saved instruction explicitly asks for visible desktop or browser control.
         - Print useful logs.
         - Do not hardcode secrets.
         - Do not stop at planning or at writing files; finish the actual task.
-        - End with what happened and what the button learned for next time.
-        - In the final user-facing result, call durable artifacts automation, runners, notes, or memory. Do not describe them as scripts.
+        - End with what happened and anything that blocked completion.
 
         \(context)
-
-        Existing optimization:
-        ```text
-        \(existingAutomation.isEmpty ? "None yet." : existingAutomation)
-        ```
         """
     }
 
     private func buttonEnvironment(
         button: ActionButton,
         prompt: String,
-        workspaceURL: URL,
-        computerUseContext: ComputerUseContextSnapshot,
-        computerUseRuntimeURL: URL?
+        workspaceURL: URL
     ) -> [String: String] {
-        var environment = [
+        [
             "BUTTON_ID": button.id.uuidString,
             "BUTTON_SLUG": button.slug,
             "BUTTON_TITLE": button.title,
             "BUTTON_RUN_PROMPT": prompt,
             "BUTTON_WORKSPACE": workspaceURL.path,
-            "BUTTON_AUTOMATION_PATH": automationWorkspace.runnerURL(for: button).path,
-            "BUTTON_SKILLS_DIRECTORY": automationWorkspace.skillsURL(for: button).path,
             "BUTTON_LOGS_DIRECTORY": automationWorkspace.logsURL(for: button).path,
-            "BUTTON_AGENT_DIRECTORY": automationWorkspace.agentURL(for: button).path,
-            "BUTTON_COMPUTER_USE_DIRECTORY": automationWorkspace.computerUseURL(for: button).path,
-            "BUTTON_COMPUTER_USE_CONTEXT": computerUseContext.contextURL.path,
         ]
-
-        if let computerUseRuntimeURL {
-            environment["BUTTON_COMPUTER_USE_RUNTIME"] = computerUseRuntimeURL.path
-        }
-
-        return environment
     }
 
     private func buttonAgentConfiguration(configuration: AIConfiguration, workspaceURL: URL) -> AIConfiguration {

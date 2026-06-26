@@ -273,7 +273,7 @@ struct AppRootView: View {
     }
 
     private func shouldStartImmediately(_ button: ActionButton) -> Bool {
-        !button.requiresRunConfirmation && ButtonAutomationWorkspace.production().automationExists(for: button)
+        !button.requiresRunConfirmation
     }
 
     private func delete(_ button: ActionButton) {

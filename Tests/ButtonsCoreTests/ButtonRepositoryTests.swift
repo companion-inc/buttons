@@ -34,17 +34,19 @@ struct ButtonRepositoryTests {
         #expect(loaded.count == 1)
     }
 
-    @Test("Only seed button stars a named repository")
-    func onlySeedButtonStarsNamedRepository() {
+    @Test("Only seed button stars the internal repository")
+    func onlySeedButtonStarsInternalRepository() {
         let button = ButtonSeed.defaults[0]
 
         #expect(ButtonSeed.defaults.count == 1)
         #expect(button.title == "Star Repo")
         #expect(button.slug == "star-repo")
         #expect(button.face.color == .lemon)
-        #expect(button.workflow.steps.first?.value.contains("companion-inc/buttons") == false)
-        #expect(button.workflow.steps.first?.value.contains("repository named in this run prompt") == true)
-        #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)
+        #expect(button.approvalPolicy == .never)
+        #expect(button.requiresRunConfirmation == false)
+        #expect(button.workflow.steps.first?.value.contains("https://github.com/companion-inc/buttons") == true)
+        #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred/companion-inc/buttons") == true)
+        #expect(button.workflow.steps.first?.value.contains("Do not use Computer Use") == true)
     }
 
     @Test("Production button workspace lives in the home dot-buttons directory")

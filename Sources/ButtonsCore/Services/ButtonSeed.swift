@@ -19,19 +19,20 @@ public enum ButtonSeed {
                     title: "Workflow",
                     kind: .askAI,
                     value: """
-                    Star the GitHub repository named in this run prompt and open it in the browser.
+                    Star https://github.com/companion-inc/buttons using the GitHub CLI, then open it in the browser.
 
-                    Accept either owner/name or a github.com URL. Use `gh api -X PUT /user/starred/{owner}/{repo}` when GitHub CLI auth is available, then open https://github.com/{owner}/{repo}. When no repository is named, ask for the repository instead of guessing. Print what happened and what blocked the star when auth or repo access fails.
+                    Use `gh api -X PUT /user/starred/companion-inc/buttons` as the primary route. Then open it with `gh repo view companion-inc/buttons --web`. Do not use Computer Use for this button. If GitHub CLI auth or repository access blocks the star, report the exact blocker.
                     """,
                     aiConfiguration: AIConfiguration(
                         provider: .codex,
                         model: "",
-                        systemPrompt: "Be operational. Run the button now, then improve its durable memory; do not stop at an explanation.",
+                        systemPrompt: "Be operational. Run the button now; do not stop at an explanation.",
                         executionMode: .workspaceWrite
                     )
                 ),
             ]
         ),
+        approvalPolicy: .never,
         permissions: [
             ButtonPermission(title: "Local agent", detail: "Uses the installed GitHub CLI and opens the repository in the browser."),
         ]

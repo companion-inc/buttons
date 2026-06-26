@@ -8,18 +8,12 @@ Buttons does not store OpenAI or Anthropic API keys. It runs the locally install
 
 Buttons keeps its runtime state in `~/.buttons`. Each button gets its own editable slug workspace at `~/.buttons/buttons/<slug>/` with:
 
-- `automation/` for internal acceleration artifacts the agent may maintain.
 - `button.md` for the current button instructions and latest run prompt.
-- `skills/` for button-specific reusable notes and helper instructions.
 - `logs/` for per-run logs.
-- `computer-use/` for the latest screen/accessibility context refreshed by the packaged Computer Use helper.
-- `agent/` for agent scratch files.
 
-Every click runs the selected local agent. The agent completes the task, reads the button workspace, and updates durable memory or automation so later clicks get cheaper. Buttons never turns a button into manual setup; the optimization layer belongs to the agent.
+Every click runs the selected local agent against the saved button instruction. Buttons v1 keeps the loop direct: click the button, run the task, show live state, save the run log.
 
-Computer-use context is owned by a separate helper executable, `ButtonsComputerUseRuntime`, packaged at `Buttons.app/Contents/Helpers/`. The main app owns buttons and run history; the helper owns screen/accessibility capture so desktop automation has a product boundary instead of ad-hoc shell UI shims.
-
-Clicking a button face runs it. The play mark inside the face is the run affordance, and the gear opens the button's internals. Buttons with no optimization memory yet, buttons set to always confirm, and risky buttons open an armed run screen first. Optimized safe buttons zoom into live run state and start immediately. While a run is active, another click does not start a duplicate; the live run exposes Stop and saves a stopped receipt when canceled.
+Clicking a button face runs it. The play mark inside the face is the run affordance, and the gear opens the button's internals. Buttons set to always confirm, or buttons whose permission mode requires confirmation, open an armed run screen first. Safe buttons zoom into live run state and start immediately. While a run is active, another click does not start a duplicate; the live run exposes Stop and saves a stopped receipt when canceled.
 
 ## Build
 
@@ -39,8 +33,7 @@ open .build/debug/Buttons.app
 - Permission mode
 - One saved run prompt per button; first or risky runs let the user review or edit that prompt before launch.
 - Per-button workspace under `~/.buttons/buttons/<slug>/`
-- Per-button optimization memory, skills folder, and logs
-- Packaged `ButtonsComputerUseRuntime` helper for per-run computer-use context
+- Per-button run logs
 - The saved run prompt is the only user-provided run input for a button click.
 
 Dangerous agent buttons require approval by default.
