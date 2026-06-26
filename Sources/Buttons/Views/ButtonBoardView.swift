@@ -13,7 +13,7 @@ struct ButtonBoardView: View {
     let deleteAction: (ActionButton) -> Void
 
     private let columns = [
-        GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 22),
+        GridItem(.adaptive(minimum: 260, maximum: 340), spacing: 22),
     ]
 
     var body: some View {

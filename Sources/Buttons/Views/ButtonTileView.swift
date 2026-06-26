@@ -16,59 +16,46 @@ struct ButtonTileView: View {
             Button {
                 runAction(button)
             } label: {
-                ZStack(alignment: .bottomTrailing) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Image(systemName: button.face.symbolName)
-                                .font(.title2)
-                                .symbolRenderingMode(.hierarchical)
-                                .frame(width: 44, height: 44)
-                                .background(iconBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Image(systemName: button.face.symbolName)
+                            .font(.title2)
+                            .symbolRenderingMode(.hierarchical)
+                            .frame(width: 44, height: 44)
+                            .background(iconBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .accessibilityHidden(true)
 
-                            Spacer()
+                        Spacer()
 
-                            ButtonTileControlMark(systemName: "gearshape.fill", face: button.face, size: 38)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(button.title)
-                                .font(.title3)
-                                .bold()
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-
-                            Text(button.subtitle)
-                                .font(.callout)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
-
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                categoryBadge
-                                AgentBadgeView(provider: provider)
-                                AutomationStatusBadgeView(button: button)
-                            }
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    categoryBadge
-                                    AgentBadgeView(provider: provider)
-                                }
-                                AutomationStatusBadgeView(button: button)
-                            }
-                        }
+                        ButtonTileControlMark(systemName: "gearshape.fill", face: button.face, size: 38)
                     }
-                    .padding(22)
-                    .frame(maxWidth: .infinity, minHeight: 196, alignment: .leading)
 
-                    ButtonTileControlMark(systemName: "play.fill", face: button.face, size: 52, font: .title3)
-                        .padding(18)
+                    Spacer(minLength: 8)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(button.title)
+                            .font(.title3)
+                            .bold()
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Text(button.subtitle)
+                            .font(.callout)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+
+                    HStack(alignment: .bottom, spacing: 10) {
+                        badgeCluster
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        ButtonTileControlMark(systemName: "play.fill", face: button.face, size: 52, font: .title3)
+                            .layoutPriority(2)
+                    }
                 }
+                .padding(22)
+                .frame(maxWidth: .infinity, minHeight: 196, alignment: .leading)
                 .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             }
             .buttonStyle(PhysicalButtonTileStyle(face: button.face))
@@ -124,9 +111,35 @@ struct ButtonTileView: View {
         Text(button.category)
             .font(.caption.bold())
             .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(.black.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.08 : 0.18))
             .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var badgeCluster: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                categoryBadge
+                AgentBadgeView(provider: provider)
+                AutomationStatusBadgeView(button: button)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    categoryBadge
+                    AgentBadgeView(provider: provider)
+                }
+                AutomationStatusBadgeView(button: button)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                categoryBadge
+                AgentBadgeView(provider: provider)
+                AutomationStatusBadgeView(button: button)
+            }
+        }
     }
 }

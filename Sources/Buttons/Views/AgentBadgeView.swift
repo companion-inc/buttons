@@ -13,6 +13,7 @@ struct AgentBadgeView: View {
                 .font(.caption.bold())
                 .lineLimit(1)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -28,6 +29,7 @@ struct AgentBadgeView: View {
             Capsule()
                 .strokeBorder(.white.opacity(0.24), lineWidth: 1)
         )
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var badgeColors: [Color] {

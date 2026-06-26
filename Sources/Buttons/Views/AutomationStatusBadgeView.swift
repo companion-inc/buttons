@@ -15,11 +15,13 @@ struct AutomationStatusBadgeView: View {
                 Text("Optimized")
                     .font(.caption.bold())
             }
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(.green)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color.green.opacity(0.12))
             .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 
