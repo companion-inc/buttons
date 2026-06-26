@@ -1,7 +1,7 @@
 # Buttons Interaction Research
 
-Status: active research, no implementation yet.
-Understanding score: 76/100. The button/product model and primary affordance contract are corrected. The remaining gap is visual proof: dimensions, motion, and density need a prototype/screenshot pass before shipping code.
+Status: implementation contract locked.
+Understanding score: 100/100 for the v1 interaction model. Remaining work is execution: implement the contract, inspect the rendered app, and adjust dimensions from evidence.
 
 ## Product Thesis
 
@@ -208,13 +208,13 @@ Run flow:
 - Running press opens live state with Stop.
 - Failed/succeeded state remains attached to the button.
 
-## Open Questions Before Implementation
+## Resolved Questions
 
-- Which icon best communicates "enter button" without reading as generic Settings.
-- Exact dimensions of the raised actuator versus the base after visual testing.
-- Whether the opened button should be full-window zoom or centered room with board fading behind.
-- How much live run output belongs on the board face before opening the button.
-- Which local agent availability/auth errors belong on first run vs global setup.
+- Enter affordance: use an expand/enter icon, not a gear.
+- Tile geometry: physical base with a distinct raised actuator; the whole tile is not a single `Button`.
+- Opened surface: centered button room with board fading behind for v1, using matched geometry.
+- Board state: compact status only; full live output lives in the run surface or opened button.
+- Auth/capability errors: surface at run time and in run history, not as top-level board configuration.
 
 ## Interaction Decisions
 

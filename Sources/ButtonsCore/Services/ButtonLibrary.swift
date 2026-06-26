@@ -200,13 +200,10 @@ public final class ButtonLibrary {
             !legacySeedTitles.contains(button.title)
         }
 
-        if let starIndex = copy.firstIndex(where: { $0.id == ButtonSeed.starRepo.id || $0.title == ButtonSeed.starRepo.title }) {
-            var starButton = copy.remove(at: starIndex)
-            starButton = ButtonSeed.starRepo
-            copy.insert(starButton, at: 0)
-        } else {
-            copy.insert(ButtonSeed.starRepo, at: 0)
+        copy.removeAll { button in
+            button.id == ButtonSeed.starRepo.id || button.title == ButtonSeed.starRepo.title
         }
+        copy.insert(ButtonSeed.starRepo, at: 0)
 
         return uniquedSlugs(copy.map(normalizedSlug))
     }

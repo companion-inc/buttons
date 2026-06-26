@@ -53,6 +53,51 @@ struct ButtonRepositoryTests {
         #expect(button.workflow.steps.first?.value.contains("gh repo view") == false)
     }
 
+    @Test("Library collapses duplicate starter buttons")
+    func libraryCollapsesDuplicateStarterButtons() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let buttonURL = rootURL.appending(path: "buttons.json")
+        let runsURL = rootURL.appending(path: "runs.json")
+        let repository = FileButtonRepository(fileURL: buttonURL)
+        let receiptRepository = ButtonRunReceiptRepository(fileURL: runsURL)
+        let customButton = ActionButton(
+            title: "Custom",
+            subtitle: "Saved prompt",
+            category: "Personal",
+            taskDescription: "Do a custom task.",
+            face: ButtonFace(symbolName: "bolt.fill", color: .poppy, surface: .raised),
+            workflow: ButtonWorkflow(
+                steps: [
+                    WorkflowStep(
+                        title: "Workflow",
+                        kind: .askAI,
+                        value: "Do the custom task.",
+                        aiConfiguration: AIConfiguration()
+                    ),
+                ]
+            )
+        )
+
+        try await repository.save([
+            ButtonSeed.starRepo,
+            customButton,
+            ButtonSeed.starRepo,
+        ])
+
+        let library = await ButtonLibrary(
+            repository: repository,
+            receiptRepository: receiptRepository
+        )
+        await library.load()
+
+        let starButtons = await library.buttons.filter { $0.id == ButtonSeed.starRepo.id || $0.title == ButtonSeed.starRepo.title }
+        let loadedCustomButton = await library.buttons.first { $0.id == customButton.id }
+
+        #expect(starButtons.count == 1)
+        #expect(loadedCustomButton?.title == "Custom")
+    }
+
     @Test("Production button workspace lives in the home dot-buttons directory")
     func productionWorkspaceLivesInHomeDotButtons() {
         let workspace = ButtonAutomationWorkspace.production()

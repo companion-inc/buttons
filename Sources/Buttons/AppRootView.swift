@@ -28,6 +28,8 @@ struct AppRootView: View {
                 ButtonBoardView(
                     buttons: library.buttons,
                     selectedButtonID: activeZoomButtonID,
+                    runningButtonID: runningButtonID,
+                    latestReceiptsByButtonID: latestReceiptsByButtonID,
                     namespace: buttonZoomNamespace,
                     runAction: requestRun,
                     editAction: openButton,
@@ -65,7 +67,6 @@ struct AppRootView: View {
                     receipt: pendingRunReceipt,
                     runEvents: pendingRunEvents,
                     cancelAction: cancelPendingRun,
-                    saveAction: savePendingRunPrompt,
                     runAction: confirmPendingRun
                 )
                 .zIndex(20)
@@ -110,6 +111,18 @@ struct AppRootView: View {
 
     private var activeZoomButtonID: UUID? {
         detailSelection?.buttonID ?? pendingRunButton?.id
+    }
+
+    private var runningButtonID: UUID? {
+        isPendingRunRunning ? pendingRunButton?.id : nil
+    }
+
+    private var latestReceiptsByButtonID: [UUID: ButtonRunReceipt] {
+        var receiptsByButtonID: [UUID: ButtonRunReceipt] = [:]
+        for receipt in library.receipts where receiptsByButtonID[receipt.buttonID] == nil {
+            receiptsByButtonID[receipt.buttonID] = receipt
+        }
+        return receiptsByButtonID
     }
 
     private func newButton() {
@@ -164,7 +177,20 @@ struct AppRootView: View {
     }
 
     private func requestRun(_ button: ActionButton) {
-        guard !isPendingRunRunning else {
+        let prompt = defaultPrompt(for: button).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else {
+            openButton(button)
+            return
+        }
+
+        if isPendingRunRunning {
+            guard pendingRunButton?.id == button.id else {
+                return
+            }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+                detailSelection = nil
+                pendingRunButton = library.button(id: button.id) ?? button
+            }
             return
         }
 
@@ -182,7 +208,7 @@ struct AppRootView: View {
 
         startPendingRun(
             button: button,
-            prompt: defaultPrompt(for: button)
+            prompt: prompt
         )
     }
 
@@ -195,22 +221,6 @@ struct AppRootView: View {
             button: button,
             prompt: prompt
         )
-    }
-
-    private func savePendingRunPrompt(_ prompt: String) {
-        guard var button = pendingRunButton else {
-            return
-        }
-
-        if var firstStep = button.workflow.steps.first {
-            firstStep.value = prompt
-            button.workflow.steps[0] = firstStep
-        }
-
-        Task { @MainActor in
-            await library.update(button)
-            pendingRunButton = button
-        }
     }
 
     private func cancelPendingRun() {

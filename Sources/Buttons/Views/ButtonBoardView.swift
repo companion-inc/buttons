@@ -4,6 +4,8 @@ import SwiftUI
 struct ButtonBoardView: View {
     let buttons: [ActionButton]
     let selectedButtonID: UUID?
+    let runningButtonID: UUID?
+    let latestReceiptsByButtonID: [UUID: ButtonRunReceipt]
     let namespace: Namespace.ID
     let runAction: (ActionButton) -> Void
     let editAction: (ActionButton) -> Void
@@ -27,6 +29,8 @@ struct ButtonBoardView: View {
                         ButtonTileView(
                             button: button,
                             isSelected: false,
+                            isRunning: runningButtonID == button.id,
+                            latestReceipt: latestReceiptsByButtonID[button.id],
                             runAction: runAction,
                             editAction: editAction,
                             duplicateAction: duplicateAction,
