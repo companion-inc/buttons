@@ -17,14 +17,19 @@ public enum ButtonSeed {
             steps: [
                 WorkflowStep(
                     title: "Workflow",
-                    kind: .runShellCommand,
+                    kind: .askAI,
                     value: """
-                    set -euo pipefail
+                    Star https://github.com/companion-inc/buttons and open it in the browser.
 
-                    gh api -X PUT /user/starred/companion-inc/buttons
-                    gh repo view companion-inc/buttons --web
-                    printf 'Starred companion-inc/buttons and opened https://github.com/companion-inc/buttons.\\n'
-                    """
+                    Use the available local tools and CLI as needed. Do not use Computer Use for this button. Opening the repository alone is not completion; report failure when the star action is blocked.
+                    """,
+                    aiConfiguration: AIConfiguration(
+                        provider: .codex,
+                        model: "",
+                        systemPrompt: "Be operational. Run the button now; do not stop at an explanation.",
+                        executionMode: .dangerouslyRun,
+                        thinkingLevel: .low
+                    )
                 ),
             ]
         ),

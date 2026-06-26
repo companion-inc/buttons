@@ -44,11 +44,13 @@ struct ButtonRepositoryTests {
         #expect(button.face.color == .lemon)
         #expect(button.approvalPolicy == .never)
         #expect(button.requiresRunConfirmation == false)
-        #expect(button.workflow.steps.first?.kind == .runShellCommand)
-        #expect(button.workflow.steps.first?.aiConfiguration == nil)
-        #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred/companion-inc/buttons") == true)
-        #expect(button.workflow.steps.first?.value.contains("gh repo view companion-inc/buttons --web") == true)
+        #expect(button.workflow.steps.first?.kind == .askAI)
+        #expect(button.workflow.steps.first?.aiConfiguration?.provider == .codex)
+        #expect(button.workflow.steps.first?.aiConfiguration?.executionMode == .dangerouslyRun)
+        #expect(button.workflow.steps.first?.aiConfiguration?.thinkingLevel == .low)
         #expect(button.workflow.steps.first?.value.contains("https://github.com/companion-inc/buttons") == true)
+        #expect(button.workflow.steps.first?.value.contains("gh api") == false)
+        #expect(button.workflow.steps.first?.value.contains("gh repo view") == false)
     }
 
     @Test("Production button workspace lives in the home dot-buttons directory")
