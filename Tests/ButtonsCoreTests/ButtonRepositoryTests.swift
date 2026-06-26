@@ -30,16 +30,19 @@ struct ButtonRepositoryTests {
 
         let loaded = try await repository.load()
 
-        #expect(!loaded.isEmpty)
+        #expect(loaded == ButtonSeed.defaults)
+        #expect(loaded.count == 1)
     }
 
-    @Test("First seed button stars the Buttons repository")
-    func firstSeedButtonStarsButtonsRepository() {
+    @Test("Only seed button stars a named repository")
+    func onlySeedButtonStarsNamedRepository() {
         let button = ButtonSeed.defaults[0]
 
+        #expect(ButtonSeed.defaults.count == 1)
         #expect(button.title == "Star Repo")
         #expect(button.slug == "star-repo")
-        #expect(button.workflow.steps.first?.value.contains("companion-inc/buttons") == true)
+        #expect(button.workflow.steps.first?.value.contains("companion-inc/buttons") == false)
+        #expect(button.workflow.steps.first?.value.contains("repository named in this run prompt") == true)
         #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)
     }
 

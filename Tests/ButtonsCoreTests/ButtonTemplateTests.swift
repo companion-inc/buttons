@@ -6,7 +6,7 @@ import Testing
 struct ButtonTemplateTests {
     @Test("Template export and import keeps recipe while minting a new id")
     func exportImportKeepsRecipeWithNewID() throws {
-        let button = ButtonSeed.defaults[1]
+        let button = ButtonSeed.starRepo
 
         let data = try ButtonTemplateCodec.encode(button)
         let decoded = try ButtonTemplateCodec.decode(data)

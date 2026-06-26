@@ -196,7 +196,9 @@ public final class ButtonLibrary {
     }
 
     private static func withRequiredDefaults(_ buttons: [ActionButton]) -> [ActionButton] {
-        var copy = buttons
+        var copy = buttons.filter { button in
+            !legacySeedTitles.contains(button.title)
+        }
 
         if let starIndex = copy.firstIndex(where: { $0.id == ButtonSeed.starRepo.id || $0.title == ButtonSeed.starRepo.title }) {
             var starButton = copy.remove(at: starIndex)
@@ -208,6 +210,13 @@ public final class ButtonLibrary {
 
         return uniquedSlugs(copy.map(normalizedSlug))
     }
+
+    private static let legacySeedTitles: Set<String> = [
+        "Plan Day",
+        "Clean Inbox",
+        "Open PR",
+        "Run Agent",
+    ]
 
     private static func migratedConfiguration(from configuration: AIConfiguration?) -> AIConfiguration {
         guard var configuration else {
