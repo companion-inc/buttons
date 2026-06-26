@@ -7,6 +7,7 @@ public enum WorkflowRunError: Error, Equatable, LocalizedError, Sendable {
     case missingAIConfiguration
     case localAgentUnavailable(AIProvider, [String])
     case localAgentFailed(AIProvider, String)
+    case agentTaskFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -22,6 +23,8 @@ public enum WorkflowRunError: Error, Equatable, LocalizedError, Sendable {
             "\(provider.shortTitle) command was not found. Checked: \(candidates.joined(separator: ", "))."
         case .localAgentFailed(let provider, let output):
             output.isEmpty ? "\(provider.shortTitle) command failed." : output
+        case .agentTaskFailed(let output):
+            output.isEmpty ? "Agent reported that the button task did not complete." : output
         }
     }
 }

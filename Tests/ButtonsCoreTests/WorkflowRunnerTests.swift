@@ -1,4 +1,4 @@
-import ButtonsCore
+@testable import ButtonsCore
 import Foundation
 import Testing
 
@@ -57,5 +57,33 @@ struct WorkflowRunnerTests {
         #expect(FileManager.default.fileExists(atPath: workspace.logsURL(for: button).path))
         #expect(!FileManager.default.fileExists(atPath: workspace.runnerURL(for: button).path))
         #expect(!FileManager.default.fileExists(atPath: workspace.computerUseToolsURL(for: button).path))
+    }
+
+    @Test("Agent failure marker becomes failed task output")
+    func agentFailureMarkerBecomesFailedTaskOutput() {
+        let completion = WorkflowRunner.interpretedAgentCompletion("""
+        BUTTONS_RUN_FAILED: GitHub CLI could not reach api.github.com.
+        Try again when network is available.
+        """)
+
+        #expect(completion.isFailed)
+        #expect(completion.output == """
+        GitHub CLI could not reach api.github.com.
+        Try again when network is available.
+        """)
+    }
+
+    @Test("Agent done marker is stripped from user output")
+    func agentDoneMarkerIsStrippedFromUserOutput() {
+        let completion = WorkflowRunner.interpretedAgentCompletion("""
+        BUTTONS_RUN_DONE: Starred companion-inc/buttons.
+        Opened the repository.
+        """)
+
+        #expect(!completion.isFailed)
+        #expect(completion.output == """
+        Starred companion-inc/buttons.
+        Opened the repository.
+        """)
     }
 }

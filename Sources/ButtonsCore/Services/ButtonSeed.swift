@@ -17,18 +17,14 @@ public enum ButtonSeed {
             steps: [
                 WorkflowStep(
                     title: "Workflow",
-                    kind: .askAI,
+                    kind: .runShellCommand,
                     value: """
-                    Star https://github.com/companion-inc/buttons using the GitHub CLI, then open it in the browser.
+                    set -euo pipefail
 
-                    Use `gh api -X PUT /user/starred/companion-inc/buttons` as the primary route. Then open it with `gh repo view companion-inc/buttons --web`. Do not use Computer Use for this button. If GitHub CLI auth or repository access blocks the star, report the exact blocker.
-                    """,
-                    aiConfiguration: AIConfiguration(
-                        provider: .codex,
-                        model: "",
-                        systemPrompt: "Be operational. Run the button now; do not stop at an explanation.",
-                        executionMode: .workspaceWrite
-                    )
+                    gh api -X PUT /user/starred/companion-inc/buttons
+                    gh repo view companion-inc/buttons --web
+                    printf 'Starred companion-inc/buttons and opened https://github.com/companion-inc/buttons.\\n'
+                    """
                 ),
             ]
         ),

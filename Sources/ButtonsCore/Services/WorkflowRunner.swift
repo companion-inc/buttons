@@ -168,13 +168,18 @@ public final class WorkflowRunner {
                 workspaceURL: workspaceURL
             )
         )
+        let completion = Self.interpretedAgentCompletion(agentOutput)
+        guard !completion.isFailed else {
+            throw WorkflowRunError.agentTaskFailed(completion.output)
+        }
+
         eventHandler?("\(configuration.provider.shortTitle) returned.")
 
         return """
         Agent ran this button.
         Workspace: \(workspaceURL.path)
 
-        \(agentOutput)
+        \(completion.output)
         """
     }
 
@@ -220,10 +225,11 @@ public final class WorkflowRunner {
         - Treat the run prompt as the only user-provided input for this click.
         - Prefer structured app, API, and CLI routes over visible GUI control.
         - Do not use Computer Use unless the saved instruction explicitly asks for visible desktop or browser control.
-        - Print useful logs.
+        - Report concise status in your final output. Buttons saves the run log; do not create a separate run log unless the saved instruction asks for one.
         - Do not hardcode secrets.
         - Do not stop at planning or at writing files; finish the actual task.
-        - End with what happened and anything that blocked completion.
+        - Begin the final output with `BUTTONS_RUN_DONE:` when the saved instruction completed.
+        - Begin the final output with `BUTTONS_RUN_FAILED:` when the saved instruction did not complete, then state the blocker.
 
         \(context)
         """
@@ -253,5 +259,60 @@ public final class WorkflowRunner {
             workingDirectory: workspaceURL.path,
             thinkingLevel: configuration.thinkingLevel
         )
+    }
+
+    nonisolated static func interpretedAgentCompletion(_ output: String) -> AgentCompletion {
+        let doneMarker = "BUTTONS_RUN_DONE:"
+        let failedMarker = "BUTTONS_RUN_FAILED:"
+        let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let firstLine = trimmedOutput
+            .components(separatedBy: .newlines)
+            .first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return AgentCompletion(output: "", isFailed: false)
+        }
+
+        if firstLine.hasPrefix(doneMarker) {
+            return AgentCompletion(
+                output: trimmedOutput.removingFirstLineMarker(doneMarker),
+                isFailed: false
+            )
+        }
+
+        if firstLine.hasPrefix(failedMarker) {
+            return AgentCompletion(
+                output: trimmedOutput.removingFirstLineMarker(failedMarker),
+                isFailed: true
+            )
+        }
+
+        return AgentCompletion(output: trimmedOutput, isFailed: false)
+    }
+}
+
+struct AgentCompletion: Equatable, Sendable {
+    var output: String
+    var isFailed: Bool
+}
+
+private extension String {
+    func removingFirstLineMarker(_ marker: String) -> String {
+        var lines = components(separatedBy: .newlines)
+
+        for index in lines.indices {
+            let trimmedLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedLine.isEmpty else {
+                continue
+            }
+
+            let replacement = String(trimmedLine.dropFirst(marker.count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            lines[index] = replacement
+            break
+        }
+
+        return lines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
