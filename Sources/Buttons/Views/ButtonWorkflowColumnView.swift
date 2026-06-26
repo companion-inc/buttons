@@ -99,6 +99,12 @@ struct ButtonWorkflowColumnView: View {
 
             Spacer()
 
+            Button("Save", systemImage: "checkmark", action: save)
+                .buttonStyle(ChromePillButtonStyle(tint: .black.opacity(0.66)))
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(isRunning)
+                .opacity(isRunning ? 0.42 : 1)
+
             Button("Close", systemImage: "xmark", action: closeAction)
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
