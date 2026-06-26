@@ -105,25 +105,12 @@ private func renderIcon(pixels: Int) -> NSImage {
     buttonFace.lineWidth = max(2, 14 * scale)
     buttonFace.stroke()
 
-    let glyph = NSBezierPath(roundedRect: rect(308, 332, 408, 360), xRadius: radius(82), yRadius: radius(82))
-    NSColor(calibratedRed: 0.09, green: 0.09, blue: 0.10, alpha: 1).setFill()
-    glyph.fill()
-
-    NSColor(calibratedRed: 1.0, green: 0.83, blue: 0.20, alpha: 1).setFill()
-    for row in 0..<2 {
-        for column in 0..<3 {
-            let x = 368 + CGFloat(column) * 88
-            let y = 464 + CGFloat(row) * 82
-            NSBezierPath(ovalIn: rect(x, y, 36, 36)).fill()
-        }
-    }
-
-    let play = NSBezierPath()
-    play.move(to: NSPoint(x: 572 * scale, y: 410 * scale))
-    play.line(to: NSPoint(x: 572 * scale, y: 602 * scale))
-    play.line(to: NSPoint(x: 698 * scale, y: 506 * scale))
-    play.close()
-    play.fill()
+    let centerOutline = NSBezierPath(roundedRect: rect(308, 332, 408, 360), xRadius: radius(82), yRadius: radius(82))
+    NSColor(calibratedRed: 0.82, green: 0.58, blue: 0.03, alpha: 0.10).setFill()
+    centerOutline.fill()
+    NSColor(calibratedWhite: 1, alpha: 0.16).setStroke()
+    centerOutline.lineWidth = max(2, 8 * scale)
+    centerOutline.stroke()
 
     image.unlockFocus()
     return image
