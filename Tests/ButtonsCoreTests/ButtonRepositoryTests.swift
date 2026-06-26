@@ -41,6 +41,7 @@ struct ButtonRepositoryTests {
         #expect(ButtonSeed.defaults.count == 1)
         #expect(button.title == "Star Repo")
         #expect(button.slug == "star-repo")
+        #expect(button.face.color == .lemon)
         #expect(button.workflow.steps.first?.value.contains("companion-inc/buttons") == false)
         #expect(button.workflow.steps.first?.value.contains("repository named in this run prompt") == true)
         #expect(button.workflow.steps.first?.value.contains("gh api -X PUT /user/starred") == true)

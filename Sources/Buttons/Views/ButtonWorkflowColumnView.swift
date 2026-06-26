@@ -91,9 +91,6 @@ struct ButtonWorkflowColumnView: View {
                         .padding(.vertical, 6)
                         .background(.black.opacity(0.06))
                         .clipShape(Capsule())
-
-                    AgentBadgeView(provider: draft.aiProvider)
-                    AutomationStatusBadgeView(button: draft.button)
                 }
             }
 

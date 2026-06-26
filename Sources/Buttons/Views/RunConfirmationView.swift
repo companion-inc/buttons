@@ -190,8 +190,6 @@ struct RunConfirmationView: View {
                         .padding(.vertical, 6)
                         .background(.black.opacity(0.06))
                         .clipShape(Capsule())
-
-                    AgentBadgeView(provider: provider)
                 }
             }
 

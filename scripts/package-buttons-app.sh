@@ -20,6 +20,7 @@ rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources" "$app_dir/Contents/Helpers"
 cp "$build_dir/Buttons" "$app_dir/Contents/MacOS/Buttons"
 cp "$build_dir/ButtonsComputerUseRuntime" "$app_dir/Contents/Helpers/ButtonsComputerUseRuntime"
+/usr/bin/swift "$repo_root/scripts/render-app-icon.swift" "$app_dir/Contents/Resources/Buttons.icns"
 
 cat > "$app_dir/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -31,6 +32,10 @@ cat > "$app_dir/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>Buttons</string>
   <key>CFBundleExecutable</key>
+  <string>Buttons</string>
+  <key>CFBundleIconFile</key>
+  <string>Buttons</string>
+  <key>CFBundleIconName</key>
   <string>Buttons</string>
   <key>CFBundleIdentifier</key>
   <string>ai.companion.buttons</string>

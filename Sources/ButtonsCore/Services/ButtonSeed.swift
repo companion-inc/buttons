@@ -12,7 +12,7 @@ public enum ButtonSeed {
         subtitle: "GitHub",
         category: "Code",
         taskDescription: "Star a GitHub repository and open it.",
-        face: ButtonFace(symbolName: "star.fill", color: .cobalt, surface: .raised),
+        face: ButtonFace(symbolName: "star.fill", color: .lemon, surface: .raised),
         workflow: ButtonWorkflow(
             steps: [
                 WorkflowStep(

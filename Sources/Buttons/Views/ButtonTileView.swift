@@ -47,7 +47,7 @@ struct ButtonTileView: View {
                     }
 
                     HStack(alignment: .bottom, spacing: 10) {
-                        badgeCluster
+                        categoryBadge
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         ButtonTileControlMark(systemName: "play.fill", face: button.face, size: 52, font: .title3)
@@ -103,10 +103,6 @@ struct ButtonTileView: View {
         AnyShapeStyle(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.4 : 0.2))
     }
 
-    private var provider: AIProvider {
-        button.workflow.steps.first?.aiConfiguration?.provider ?? .codex
-    }
-
     private var categoryBadge: some View {
         Text(button.category)
             .font(.caption.bold())
@@ -119,27 +115,4 @@ struct ButtonTileView: View {
             .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var badgeCluster: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                categoryBadge
-                AgentBadgeView(provider: provider)
-                AutomationStatusBadgeView(button: button)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    categoryBadge
-                    AgentBadgeView(provider: provider)
-                }
-                AutomationStatusBadgeView(button: button)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                categoryBadge
-                AgentBadgeView(provider: provider)
-                AutomationStatusBadgeView(button: button)
-            }
-        }
-    }
 }
