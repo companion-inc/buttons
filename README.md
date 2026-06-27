@@ -11,9 +11,9 @@ Buttons keeps its runtime state in `~/.buttons`. Each button gets its own editab
 - `button.md` for the current button instructions and latest run prompt.
 - `logs/` for per-run logs.
 
-Every click runs the saved prompt through the selected local agent. Buttons v1 keeps the loop direct: click the button, run the task, show live state, save the run log.
+Every button is a saved prompt, but the board separates opening from running. Click the button face to enter the button room. Click the visible play control to run the saved prompt, show live state, and save the run log.
 
-Each button is a tactile object with distinct affordances. The raised actuator runs the saved prompt. The enter control opens the button room where the prompt, face, category, execution details, live state, and logs live together. Buttons set to always confirm, or buttons whose permission mode requires confirmation, open an armed run state first. Safe buttons start immediately and show live state. While a run is active, another press focuses the live run instead of starting a duplicate; the live run exposes Stop and saves a stopped receipt when canceled.
+Each button is a tactile object with distinct affordances. The face opens the button room where the prompt, face, category, execution details, live state, and logs live together. The play control runs the saved prompt. Buttons set to always confirm, or buttons whose permission mode requires confirmation, open an armed run state first. Safe play presses start immediately and show live state. While a run is active, another play press focuses the live run instead of starting a duplicate; the live run exposes Stop and saves a stopped receipt when canceled.
 
 ## Build
 

@@ -53,33 +53,16 @@ struct ButtonTileView: View {
     }
 
     private var pressActuator: some View {
-        Button(action: run) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: button.face.symbolName)
-                        .font(.title2)
-                        .symbolRenderingMode(.hierarchical)
-                        .frame(width: 48, height: 48)
-                        .background(iconBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                openFaceButton
+                Spacer(minLength: 10)
+                runButton
+            }
 
-                    Spacer()
+            Spacer(minLength: 4)
 
-                    Image(systemName: isRunning ? "waveform" : "play.fill")
-                        .font(.title3.bold())
-                        .frame(width: 50, height: 50)
-                        .background(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.40 : 0.24))
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle()
-                                .strokeBorder(.white.opacity(0.28), lineWidth: 1)
-                        )
-                        .accessibilityHidden(true)
-                }
-
-                Spacer(minLength: 4)
-
+            Button(action: open) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(button.title)
                         .font(.title3)
@@ -93,16 +76,53 @@ struct ButtonTileView: View {
                         .multilineTextAlignment(.leading)
                         .opacity(0.82)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .padding(22)
-            .frame(maxWidth: .infinity, minHeight: 162, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 32))
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(button.title)")
+            .accessibilityHint("Opens this button's prompt, face, execution details, and run history.")
         }
-        .buttonStyle(PhysicalButtonTileStyle(face: button.face))
+        .padding(22)
+        .frame(maxWidth: .infinity, minHeight: 162, alignment: .leading)
+        .physicalButtonSurface(face: button.face)
+        .opacity(canRun ? 1 : 0.72)
+    }
+
+    private var openFaceButton: some View {
+        Button(action: open) {
+            Image(systemName: button.face.symbolName)
+                .font(.title2)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 48, height: 48)
+                .background(iconBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(button.title)")
+        .accessibilityHint("Opens this button's prompt, face, execution details, and run history.")
+        .help("Open")
+    }
+
+    private var runButton: some View {
+        Button(action: run) {
+            Label(runButtonTitle, systemImage: isRunning ? "waveform" : "play.fill")
+                .labelStyle(.iconOnly)
+                .font(.title3.bold())
+                .frame(width: 50, height: 50)
+                .background(.white.opacity(button.face.color == .paper || button.face.color == .lemon ? 0.40 : 0.24))
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .strokeBorder(.white.opacity(0.28), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.12), radius: 7, y: 4)
+        }
+        .buttonStyle(.plain)
         .disabled(!canRun)
-        .opacity(canRun ? 1 : 0.62)
-        .accessibilityLabel(button.title)
+        .opacity(canRun ? 1 : 0.44)
         .accessibilityHint(runHint)
+        .help(runButtonTitle)
     }
 
     private var enterButton: some View {
@@ -180,6 +200,14 @@ struct ButtonTileView: View {
         return canRun ? "Runs this saved prompt." : "Add a prompt before this button can run."
     }
 
+    private var runButtonTitle: String {
+        if isRunning {
+            return "Show run"
+        }
+
+        return canRun ? "Run" : "Add prompt before running"
+    }
+
     private var statusTitle: String {
         if isRunning {
             return "Running"
@@ -252,5 +280,9 @@ struct ButtonTileView: View {
 
     private func run() {
         runAction(button)
+    }
+
+    private func open() {
+        editAction(button)
     }
 }

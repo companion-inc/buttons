@@ -1,7 +1,7 @@
 # Buttons Interaction Research
 
-Status: implementation contract locked.
-Understanding score: 100/100 for the v1 interaction model. Remaining work is execution: implement the contract, inspect the rendered app, and adjust dimensions from evidence.
+Status: implementation contract corrected after live board interaction feedback.
+Understanding score: 100/100 for the v1 interaction model. The key correction is that the button object opens; only the explicit play/run affordance starts or focuses a run.
 
 ## Product Thesis
 
@@ -12,7 +12,7 @@ It is not Apple Shortcuts with prettier cards, not Keyboard Maestro with fewer s
 ## Corrected World Model
 
 - A button is an object with affordance zones, not one overloaded click target.
-- The primary press actuator runs the saved prompt or focuses the active run.
+- The button face opens the button room. A separate visible play/run affordance runs the saved prompt or focuses the active run.
 - Opening a button enters that button's internals through a zoom/morph transition.
 - Editing the icon, color, title, category, and prompt happens inside the opened button, not in a separate Settings screen.
 - Creating a button starts with the prompt. The app infers name, category, icon, and description where it can.
@@ -43,7 +43,7 @@ Source:
 
 Adopt:
 
-- The primary action must remain visible and familiar.
+- The run action must remain visible and familiar, but it must not consume the whole object face.
 - Secondary object-specific actions can live in context menus.
 - Advanced configuration belongs behind progressive disclosure, close to the thing it controls.
 
@@ -178,8 +178,9 @@ Stream Deck and Keyboard Maestro are still useful as documented references becau
 
 Board button face:
 
-- The tile is a physical object with a base and a raised press actuator. The entire card is not one `Button`.
-- Main raised actuator: press to run when idle; press to focus live state when running.
+- The tile is a physical object with a base, a face, and a distinct play/run control. The entire card is not one `Button`.
+- Main face: click to open the button room.
+- Play/run control: click to run when idle; click to focus live state when running.
 - Small visible enter/edit affordance on the base: opens the button's internals. It is visible and named by hover/accessibility. It is not an invisible hit area.
 - Status mark: idle, running, failed, succeeded, needs input, needs auth. Status is on the button face.
 - Category chip: lightweight grouping/filter signal. It is not a settings entry point.
@@ -222,8 +223,9 @@ Run flow:
 
 - The board is the home screen. It should not say "Buttons" in huge redundant text once the app/window already identifies itself.
 - Each button tile is a tactile object with two obvious zones:
-  - Press actuator: the satisfying physical control. Pressing it runs the saved prompt.
-  - Base/enter control: the quieter affordance for opening internals.
+  - Button face: the satisfying physical object. Clicking it opens the button room.
+  - Play/run control: the explicit launch affordance. Clicking it runs the saved prompt or focuses the live run.
+  - Base/enter control: a secondary affordance for opening internals.
 - Hover can reveal stronger edit/share/history controls, but Run must never depend on hover.
 - The face shows only: icon, title, category/color, status, and possibly a compact last-run state.
 - No provider badges on the button by default. Codex/Claude Code are execution details.
@@ -235,7 +237,7 @@ Run flow:
 - The draft starts with a blank prompt field and an editable physical face preview.
 - The app autosaves the draft. The primary exit control is Done/Back, not Save.
 - Title, category, icon, color, and short caption are inferred after the first meaningful prompt, then editable directly on the face.
-- Empty prompt means the actuator is disabled and visually says the button is not armed yet.
+- Empty prompt means the play/run control is disabled and the face says the button is not armed yet.
 
 ### Open / Edit
 
@@ -252,9 +254,10 @@ Run flow:
 
 ### Run
 
-- Press actuator on idle button starts the prompt.
+- Pressing the button face opens the button room.
+- Pressing the explicit play/run control on an idle button starts the prompt.
 - If the permission mode is risky, the button enters an in-place armed state instead of opening a dialog. The second explicit press starts the run.
-- While running, the actuator changes to live-state/Stop behavior:
+- While running, the play/run control changes to live-state behavior:
   - Press reveals the live run room.
   - Stop is visible inside live state.
   - A duplicate run cannot start until the active run resolves.
